@@ -1,0 +1,10 @@
+{
+  "nextId": 2,
+  "messages": [
+    {
+      "id": 1,
+      "subject": "Welcome to DarkMail",
+      "body": "Your starter project is up and running."
+    }
+  ]
+}
