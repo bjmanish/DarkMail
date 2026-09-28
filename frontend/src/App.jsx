@@ -1,129 +1,69 @@
-import { useState } from "react";
-import React from 'react';
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import {
+    Navigate,
+    Route,
+    Routes
+} from "react-router-dom";
 
-import { Login } from "./pages/Login";
-import { auth } from "./utils/auth";
+import Login from "./pages/auth/Login";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import UserDashboard from "./pages/user/UserDashboard";
 
-/* USER */
-import UserRoutes from "./user/userRoutes";
-import Email from "./user/inbox/InboxList";
-import { InboxLayout } from "./user/InboxLayout";
-import {ComposeModal} from "./user/compose/ComposeModal";
-import Trash from "./components/Trash";
-// import { Analytics } from "@vercel/analytics/next"
+import ProtectedRoute from "./components/common/ProtectedRoute";
 
-import { Settings } from "./components/Settings";
+const App = () => {
 
-/* ADMIN */
-import AdminDashboard from "./admin/AdminDashboard";
-import AdminCompose from "./admin/email/AdminCompose";
-import CreateEmail from "./admin/email/CreateEmployees";
-import { AdminRoute } from "./utils/AdminRoutes";
+    return (
+        <Routes>
 
-function ProtectedApp({ setIsAuthenticated }) {
+            <Route
+                path="/login"
+                element={<Login />}
+            />
 
-  const navigate = useNavigate();
+            <Route
+                path="/admin"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["ADMIN"]}
+                    >
+                        <AdminDashboard />
+                    </ProtectedRoute>
+                }
+            />
 
-  const handleLogout = () => {
-    auth.logout();
-    setIsAuthenticated(false);
-    navigate("/login");
-  };
+            <Route
+                path="/user"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["USER"]}
+                    >
+                        <UserDashboard />
+                    </ProtectedRoute>
+                }
+            />
 
-  return (
+            <Route
+                path="/"
+                element={
+                    <Navigate
+                        to="/login"
+                        replace
+                    />
+                }
+            />
 
-    <Routes>
+            <Route
+                path="*"
+                element={
+                    <Navigate
+                        to="/"
+                        replace
+                    />
+                }
+            />
 
-      {/* USER */}
-      <Route path="/user/*" element={<UserRoutes />}>
+        </Routes>
+    );
+};
 
-        {/* Default */}
-        <Route index element={<InboxLayout />} />
-
-        {/* Inbox */}
-        <Route path="inbox" element={<InboxLayout />} />
-
-        {/* Compose */}
-        <Route path="compose" element={<ComposeModal />} />
-
-        {/* Sent */}
-        <Route path="sent" element={<Email />} />
-
-        {/* Drafts */}
-        <Route path="drafts" element={<Email />} />
-
-        {/* Trash */}
-        <Route path="trash" element={<Trash />} />
-
-      </Route>
-
-      {/* settings */}
-      <Route path="settings" element={ <Settings /> } />
-
-      {/* ADMIN */}
-      <Route
-        path="/admin"
-        element={
-          <AdminRoute>
-            <AdminDashboard />
-          </AdminRoute>
-        }
-      />
-
-      <Route
-        path="/admin/email"
-        element={
-          <AdminRoute>
-            <CreateEmail />
-            <AdminCompose />
-          </AdminRoute>
-        }
-      />
-
-      {/* DEFAULT */}
-      <Route path="/*" element={<Navigate to="/user" />} />
-
-      
-
-    </Routes>
-
-  );
-
-}
-
-/* ROOT */
-
-export function App() {
-
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    auth.isAuthenticated()
-  );
-
-  return (
-
-    <Routes>
-
-      <Route
-        path="/login"
-        element={
-          <Login onLoginSuccess={() => setIsAuthenticated(true)} />
-        }
-      />
-
-      <Route
-        path="/*"
-        element={
-          isAuthenticated ? (
-            <ProtectedApp setIsAuthenticated={setIsAuthenticated} />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-
-    </Routes>
-
-  );
-
-}
+export default App;
