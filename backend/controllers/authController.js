@@ -122,32 +122,24 @@ const getMe = async (req, res) => {
 
     try {
 
-        const employee = await Employee.findById(req.user._id)
-            .select("-password");
-
-        if (!employee) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found"
-            });
-        }
-
         return res.status(200).json({
             success: true,
-            user: employee
+            employee: req.user
         });
 
     } catch (error) {
 
-        console.error("Get current user error:", error);
+        console.error(
+            "Get current user error:",
+            error
+        );
 
         return res.status(500).json({
             success: false,
-            message: "Internal server error"
+            message: "Server error"
         });
     }
 };
-
 
 module.exports = {
     login,
