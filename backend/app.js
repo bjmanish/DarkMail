@@ -12,6 +12,7 @@ app.use(
         origin:
             process.env.CLIENT_URL ||
             "http://localhost:5173",
+            // "https://darkmail-frontend.vercel.app/"
         credentials: true
     })
 );

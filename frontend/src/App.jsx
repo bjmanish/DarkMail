@@ -5,8 +5,10 @@ import {
 } from "react-router-dom";
 
 import Login from "./pages/auth/Login";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import UserDashboard from "./pages/user/UserDashboard";
+
+import AdminRoutes from "./pages/admin/AdminRoutes";
+
+import UserRoutes from "./pages/user/userRoutes";
 
 import ProtectedRoute from "./components/common/ProtectedRoute";
 
@@ -15,33 +17,37 @@ const App = () => {
     return (
         <Routes>
 
+            {/* Login */}
             <Route
                 path="/login"
                 element={<Login />}
             />
 
+            {/* Admin */}
             <Route
-                path="/admin"
+                path="/admin/*"
                 element={
                     <ProtectedRoute
                         allowedRoles={["ADMIN"]}
                     >
-                        <AdminDashboard />
+                        <AdminRoutes />
                     </ProtectedRoute>
                 }
             />
 
+            {/* User */}
             <Route
-                path="/user"
+                path="/user/*"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["USER"]}
+                        allowedRoles={["USER", "ADMIN"]}
                     >
-                        <UserDashboard />
+                        <UserRoutes />
                     </ProtectedRoute>
                 }
             />
 
+            {/* Root */}
             <Route
                 path="/"
                 element={
@@ -52,11 +58,12 @@ const App = () => {
                 }
             />
 
+            {/* Unknown */}
             <Route
                 path="*"
                 element={
                     <Navigate
-                        to="/"
+                        to="/login"
                         replace
                     />
                 }

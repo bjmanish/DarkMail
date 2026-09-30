@@ -14,30 +14,51 @@ const {
     permanentlyDeleteMessage,
     replyToMessage,
     getThread,
+
     saveDraft,
     getDrafts,
     deleteDraft,
+    sendDraft,
+
     searchMessages,
     getUnreadCount,
-    downloadAttachment
-} = require("../controllers/messageController");
+
+    downloadAttachment,
+
+    searchRecipients
+
+} = require(
+    "../controllers/messageController"
+);
 
 const {
     authMiddleware
-} = require("../middleware/authMiddleware");
+} = require(
+    "../middleware/authMiddleware"
+);
 
-const router = express.Router();
 
-
-/*
- * All message APIs require login
- */
-router.use(authMiddleware);
+const router =
+    express.Router();
 
 
 /*
 |--------------------------------------------------------------------------
-| Drafts
+| Authentication required
+|--------------------------------------------------------------------------
+*/
+
+router.use(
+    authMiddleware
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Draft routes
+|
+| IMPORTANT:
+| These must come before /:id
 |--------------------------------------------------------------------------
 */
 
@@ -49,6 +70,11 @@ router.get(
 router.post(
     "/drafts",
     saveDraft
+);
+
+router.post(
+    "/drafts/:id/send",
+    sendDraft
 );
 
 router.delete(
@@ -92,10 +118,6 @@ router.get(
     getTrash
 );
 
-router.get(
-    "/:messageId/attachments/:attachmentIndex",
-    downloadAttachment
-);
 
 /*
 |--------------------------------------------------------------------------
@@ -111,6 +133,20 @@ router.get(
 
 /*
 |--------------------------------------------------------------------------
+| Attachments
+|
+| Must come before /:id
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+    "/:messageId/attachments/:attachmentIndex",
+    downloadAttachment
+);
+
+
+/*
+|--------------------------------------------------------------------------
 | Thread
 |--------------------------------------------------------------------------
 */
@@ -120,11 +156,14 @@ router.get(
     getThread
 );
 
-router.post("/", upload.array("attachments", 10), sendMessage);
+router.get(
+    "/recipients/search",
+    searchRecipients
+);
 
 /*
 |--------------------------------------------------------------------------
-| Individual message
+| Single message
 |--------------------------------------------------------------------------
 */
 
@@ -136,13 +175,16 @@ router.get(
 
 /*
 |--------------------------------------------------------------------------
-| Send
+| Send new message
 |--------------------------------------------------------------------------
 */
 
 router.post(
     "/",
-    upload.array("attachments", 10),
+    upload.array(
+        "attachments",
+        10
+    ),
     sendMessage
 );
 
@@ -155,14 +197,13 @@ router.post(
 
 router.post(
     "/:id/reply",
-    upload.array("attachments", 10),
     replyToMessage
 );
 
 
 /*
 |--------------------------------------------------------------------------
-| Read
+| Mark read
 |--------------------------------------------------------------------------
 */
 
@@ -174,7 +215,7 @@ router.patch(
 
 /*
 |--------------------------------------------------------------------------
-| Trash
+| Move to trash
 |--------------------------------------------------------------------------
 */
 
@@ -206,7 +247,6 @@ router.delete(
     "/:id",
     permanentlyDeleteMessage
 );
-
 
 
 module.exports = router;

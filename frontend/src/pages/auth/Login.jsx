@@ -21,11 +21,20 @@ const Login = () => {
 
     const handleChange = (e) => {
 
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+        const {
+            name,
+            value
+        } = e.target;
 
+        setFormData((previous) => ({
+            ...previous,
+            [name]: value
+        }));
+
+        // Clear error while user is typing
+        if (error) {
+            setError("");
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -34,8 +43,17 @@ const Login = () => {
 
         setError("");
 
-        if (!formData.email || !formData.password) {
-            setError("Email and password are required.");
+        const email = formData.email.trim();
+        const password = formData.password;
+
+        // Validation
+        if (!email) {
+            setError("Please enter your email address.");
+            return;
+        }
+
+        if (!password) {
+            setError("Please enter your password.");
             return;
         }
 
@@ -43,29 +61,85 @@ const Login = () => {
 
             setLoading(true);
 
+            /*
+             * login() returns the employee object
+             *
+             * Expected:
+             * {
+             *   id: "...",
+             *   employeeId: "ADM001",
+             *   name: "...",
+             *   email: "...",
+             *   role: "ADMIN"
+             * }
+             */
+
             const employee = await login(
-                formData.email,
-                formData.password
+                email,
+                password
             );
 
-            // console.log("Login data: ",employee)
+            console.log(
+                "DarkMail Login Employee:",
+                employee
+            );
 
-            if (employee.role === "ADMIN") {
+            // Prevent undefined.role error
+            if (!employee) {
+
+                throw new Error(
+                    "Login successful, but employee information was not returned by the server."
+                );
+            }
+
+            if (!employee.role) {
+
+                throw new Error(
+                    "User role was not returned by the server."
+                );
+            }
+
+            const role = employee.role.toUpperCase();
+
+            // Admin
+            if (role === "ADMIN") {
+
                 navigate("/admin", {
                     replace: true
                 });
-            } else {
+
+                return;
+            }
+
+            // Normal User
+            if (role === "USER") {
+
                 navigate("/user", {
                     replace: true
                 });
+
+                return;
             }
+
+            // Unknown role
+            throw new Error(
+                `Unsupported user role: ${employee.role}`
+            );
 
         } catch (error) {
 
+            console.error(
+                "DarkMail Login Error:",
+                error
+            );
+
+            const backendMessage =
+                error?.response?.data?.message;
+
             setError(
-                error.response?.data?.message ||
-                error.message ||
-                "Invalid email or password."
+                backendMessage ||
+                error?.message ||
+                "Unable to sign in. Please check your email and password."
             );
 
         } finally {
@@ -76,10 +150,11 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 flex items-center justify-center px-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 flex items-center justify-center px-4 py-8">
 
             <div className="w-full max-w-md">
 
+                {/* Logo / Header */}
                 <div className="mb-8 text-center text-white">
 
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-xl">
@@ -100,8 +175,10 @@ const Login = () => {
 
                 </div>
 
+                {/* Login Card */}
                 <div className="rounded-2xl bg-white p-8 shadow-2xl">
 
+                    {/* Title */}
                     <div className="mb-6">
 
                         <h2 className="text-2xl font-bold text-gray-900">
@@ -114,66 +191,101 @@ const Login = () => {
 
                     </div>
 
+                    {/* Error */}
                     {error && (
-                        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                            {error}
+                        <div
+                            role="alert"
+                            className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                        >
+
+                            <span className="mt-0.5">
+                                ⚠
+                            </span>
+
+                            <p>
+                                {error}
+                            </p>
+
                         </div>
                     )}
 
+                    {/* Form */}
                     <form
                         onSubmit={handleSubmit}
                         className="space-y-5"
                     >
 
+                        {/* Email */}
                         <div>
 
-                            <label className="mb-2 block text-sm font-medium text-gray-700">
+                            <label
+                                htmlFor="email"
+                                className="mb-2 block text-sm font-medium text-gray-700"
+                            >
                                 Email
                             </label>
 
                             <input
+                                id="email"
                                 type="email"
                                 name="email"
                                 value={formData.email}
                                 onChange={handleChange}
                                 placeholder="admin@darkmail.com"
                                 autoComplete="email"
-                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                autoFocus
+                                disabled={loading}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100"
                             />
 
                         </div>
 
+                        {/* Password */}
                         <div>
 
-                            <label className="mb-2 block text-sm font-medium text-gray-700">
+                            <label
+                                htmlFor="password"
+                                className="mb-2 block text-sm font-medium text-gray-700"
+                            >
                                 Password
                             </label>
 
                             <input
+                                id="password"
                                 type="password"
                                 name="password"
                                 value={formData.password}
                                 onChange={handleChange}
                                 placeholder="Enter your password"
                                 autoComplete="current-password"
-                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                disabled={loading}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100"
                             />
 
                         </div>
 
+                        {/* Login Button */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            {loading
-                                ? "Signing in..."
-                                : "Sign In"
-                            }
+
+                            {loading ? (
+                                <>
+                                    <span className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+
+                                    Signing in...
+                                </>
+                            ) : (
+                                "Sign In"
+                            )}
+
                         </button>
 
                     </form>
 
+                    {/* Footer */}
                     <div className="mt-6 border-t border-gray-100 pt-5 text-center">
 
                         <p className="text-xs text-gray-400">
@@ -183,6 +295,11 @@ const Login = () => {
                     </div>
 
                 </div>
+
+                {/* Bottom text */}
+                <p className="mt-5 text-center text-xs text-blue-300/70">
+                    Authorized users only
+                </p>
 
             </div>
 
