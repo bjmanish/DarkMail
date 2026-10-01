@@ -7,13 +7,55 @@ const messageRoutes = require("./routes/messages");
 
 const app = express();
 
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    "http://localhost:5173",
+    "https://darkmail-frontend.vercel.app",
+    "http://172.16.21.189:5173/",
+].filter(Boolean);
+
 app.use(
     cors({
-        origin:
-            process.env.CLIENT_URL ||
-            "http://localhost:5173",
-            // "https://darkmail-frontend.vercel.app/"
-        credentials: true
+        origin: function (origin, callback) {
+
+            // Allow requests without Origin
+            // such as Postman/server-to-server requests
+            if (!origin) {
+                return callback(null, true);
+            }
+
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            console.log(
+                "CORS blocked origin:",
+                origin
+            );
+
+            return callback(
+                new Error(
+                    `CORS policy blocked origin: ${origin}`
+                )
+            );
+        },
+
+        credentials: true,
+
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ],
+
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+        ],
     })
 );
 

@@ -1,12 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
 
 import {
     getMessagesApi,
+    getMessageByIdApi,
     markMessageAsReadApi,
-    moveMessageToTrashApi
+    moveMessageToTrashApi,
 } from "../../api/messageApi";
 
+import MessageViewer from "../../components/mail/MessageViewer";
+
 const Inbox = () => {
+
+    /* =====================================================
+       MAIL LIST
+    ===================================================== */
 
     const [messages, setMessages] = useState([]);
 
@@ -22,84 +33,142 @@ const Inbox = () => {
         page: 1,
         limit: 20,
         total: 0,
-        pages: 1
+        pages: 1,
     });
 
-    const loadInbox = useCallback(async (
-        currentPage = 1,
-        showRefresh = false
-    ) => {
+    /* =====================================================
+       SELECTED MESSAGE
+    ===================================================== */
 
-        try {
+    const [selectedMessage, setSelectedMessage] =
+        useState(null);
 
-            setError("");
+    const [messageLoading, setMessageLoading] =
+        useState(false);
 
-            if (showRefresh) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
+    const [messageError, setMessageError] =
+        useState("");
 
-            const response = await getMessagesApi({
-                folder: "inbox",
-                page: currentPage,
-                limit: 20
-            });
+    /* =====================================================
+       LOAD INBOX
+    ===================================================== */
 
-            console.log(
-                "Inbox response:",
-                response
-            );
+    const loadInbox = useCallback(
+        async (
+            currentPage = 1,
+            showRefresh = false
+        ) => {
 
-            if (!response.success) {
+            try {
 
-                throw new Error(
-                    response.message ||
-                    "Unable to load inbox"
+                setError("");
+
+                if (showRefresh) {
+                    setRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
+
+                const response =
+                    await getMessagesApi({
+                        folder: "inbox",
+                        page: currentPage,
+                        limit: 20,
+                    });
+
+                console.log(
+                    "Inbox response:",
+                    response
                 );
-            }
 
-            setMessages(
-                response.messages || []
-            );
+                if (!response?.success) {
 
-            if (response.pagination) {
+                    throw new Error(
+                        response?.message ||
+                        "Unable to load inbox"
+                    );
 
-                setPagination(
-                    response.pagination
+                }
+
+                /*
+                 * Backend supports both:
+                 *
+                 * response.data
+                 * response.messages
+                 */
+
+                const inboxMessages =
+                    response.messages ||
+                    response.data ||
+                    [];
+
+                setMessages(
+                    Array.isArray(inboxMessages)
+                        ? inboxMessages
+                        : []
                 );
 
+                /*
+                 * Pagination
+                 */
+
+                if (response.pagination) {
+
+                    setPagination(
+                        response.pagination
+                    );
+
+                } else {
+
+                    setPagination({
+                        page: currentPage,
+                        limit: 20,
+                        total:
+                            response.total ||
+                            inboxMessages.length,
+                        pages:
+                            response.pages ||
+                            1,
+                    });
+
+                }
+
+                setPage(currentPage);
+
+            } catch (error) {
+
+                console.error(
+                    "Inbox loading error:",
+                    error
+                );
+
+                setError(
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    "Unable to load inbox."
+                );
+
+            } finally {
+
+                setLoading(false);
+
+                setRefreshing(false);
+
             }
 
-            setPage(currentPage);
-
-        } catch (error) {
-
-            console.error(
-                "Inbox loading error:",
-                error
-            );
-
-            setError(
-                error?.response?.data?.message ||
-                error?.message ||
-                "Unable to load inbox."
-            );
-
-        } finally {
-
-            setLoading(false);
-            setRefreshing(false);
-
-        }
-
-    }, []);
+        },
+        []
+    );
 
     useEffect(() => {
 
         loadInbox(1);
 
     }, [loadInbox]);
+
+    /* =====================================================
+       REFRESH
+    ===================================================== */
 
     const handleRefresh = () => {
 
@@ -110,124 +179,81 @@ const Inbox = () => {
 
     };
 
-    const handleMarkRead = async (message) => {
-
-        if (isRead(message)) {
-            return;
-        }
-
-        try {
-
-            await markMessageAsReadApi(
-                message._id
-            );
-
-            setMessages((previous) =>
-                previous.map((item) => {
-
-                    if (item._id !== message._id) {
-                        return item;
-                    }
-
-                    return {
-                        ...item,
-                        readBy: [
-                            ...(item.readBy || []),
-                            message.currentUserId
-                        ]
-                    };
-
-                })
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Mark read error:",
-                error
-            );
-
-        }
-
-    };
-
-    const handleTrash = async (messageId) => {
-
-        try {
-
-            await moveMessageToTrashApi(
-                messageId
-            );
-
-            setMessages((previous) =>
-                previous.filter(
-                    (message) =>
-                        message._id !== messageId
-                )
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Move to trash error:",
-                error
-            );
-
-            setError(
-                error?.response?.data?.message ||
-                "Unable to move message to trash."
-            );
-
-        }
-
-    };
+    /* =====================================================
+       IS READ
+    ===================================================== */
 
     const isRead = (message) => {
 
-        /*
-         * Backend may provide `isRead`.
-         * If not, fall back to `readBy`.
-         */
-
         if (
-            typeof message.isRead === "boolean"
+            typeof message?.isRead ===
+            "boolean"
         ) {
+
             return message.isRead;
+
         }
 
         return false;
     };
 
+    /* =====================================================
+       GET SENDER NAME
+    ===================================================== */
+
     const getSenderName = (message) => {
 
-        if (!message.sender) {
+        if (!message?.sender) {
             return "Unknown sender";
         }
 
         if (
-            typeof message.sender === "object"
+            typeof message.sender ===
+            "object"
         ) {
+
             return (
                 message.sender.name ||
+                message.sender.fullName ||
+                message.sender.employeeName ||
                 message.sender.email ||
                 "Unknown sender"
             );
+
         }
 
-        return "Unknown sender";
+        return String(
+            message.sender
+        );
+
     };
+
+    /* =====================================================
+       GET SENDER EMAIL
+    ===================================================== */
 
     const getSenderEmail = (message) => {
 
         if (
-            message.sender &&
-            typeof message.sender === "object"
+            message?.sender &&
+            typeof message.sender ===
+            "object"
         ) {
-            return message.sender.email || "";
+
+            return (
+                message.sender.email ||
+                ""
+            );
+
         }
 
         return "";
+
     };
+
+    /* =====================================================
+       FORMAT DATE
+    ===================================================== */
 
     const formatDate = (date) => {
 
@@ -243,7 +269,9 @@ const Inbox = () => {
                 messageDate.getTime()
             )
         ) {
+
             return "";
+
         }
 
         const now = new Date();
@@ -258,9 +286,10 @@ const Inbox = () => {
                 [],
                 {
                     hour: "2-digit",
-                    minute: "2-digit"
+                    minute: "2-digit",
                 }
             );
+
         }
 
         return messageDate.toLocaleDateString(
@@ -268,10 +297,15 @@ const Inbox = () => {
             {
                 day: "2-digit",
                 month: "short",
-                year: "numeric"
+                year: "numeric",
             }
         );
+
     };
+
+    /* =====================================================
+       MESSAGE PREVIEW
+    ===================================================== */
 
     const getPreview = (body) => {
 
@@ -284,16 +318,201 @@ const Inbox = () => {
             .replace(/\s+/g, " ")
             .trim()
             .slice(0, 120);
+
     };
+
+    /* =====================================================
+       SELECT MESSAGE
+    ===================================================== */
+
+    const handleSelectMessage = async (
+        message
+    ) => {
+
+        try {
+
+            setMessageError("");
+
+            setMessageLoading(true);
+
+            /*
+             * Immediately highlight selected mail
+             */
+
+            setSelectedMessage(
+                message
+            );
+
+            /*
+             * Mark as read
+             */
+
+            if (!isRead(message)) {
+
+                try {
+
+                    await markMessageAsReadApi(
+                        message._id
+                    );
+
+                    /*
+                     * Update list
+                     */
+
+                    setMessages(
+                        (previous) =>
+                            previous.map(
+                                (item) => {
+
+                                    if (
+                                        item._id !==
+                                        message._id
+                                    ) {
+
+                                        return item;
+
+                                    }
+
+                                    return {
+                                        ...item,
+                                        isRead: true,
+                                    };
+
+                                }
+                            )
+                    );
+
+                } catch (readError) {
+
+                    console.warn(
+                        "Mark read error:",
+                        readError
+                    );
+
+                }
+
+            }
+
+            /*
+             * Load complete message
+             *
+             * This is important because the list
+             * may only contain a preview.
+             */
+
+            const response =
+                await getMessageByIdApi(
+                    message._id
+                );
+
+            if (
+                response?.success &&
+                response?.data
+            ) {
+
+                setSelectedMessage(
+                    response.data
+                );
+
+            } else if (
+                response?.success &&
+                response?.message &&
+                typeof response.message ===
+                    "object"
+            ) {
+
+                setSelectedMessage(
+                    response.message
+                );
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Message loading error:",
+                error
+            );
+
+            /*
+             * Keep list version visible
+             * if detail request fails.
+             */
+
+            setMessageError(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to load message."
+            );
+
+        } finally {
+
+            setMessageLoading(false);
+
+        }
+
+    };
+
+    /* =====================================================
+       CLOSE MESSAGE
+    ===================================================== */
+
+    const handleCloseMessage = () => {
+
+        setSelectedMessage(null);
+
+        setMessageError("");
+
+    };
+
+    /* =====================================================
+       MESSAGE DELETED
+    ===================================================== */
+
+    const handleMessageDeleted = (
+        messageId
+    ) => {
+
+        setMessages(
+            (previous) =>
+                previous.filter(
+                    (message) =>
+                        message._id !==
+                        messageId
+                )
+        );
+
+        setSelectedMessage(null);
+
+    };
+
+    /* =====================================================
+       MESSAGE UPDATED
+    ===================================================== */
+
+    const handleMessageUpdated = async () => {
+
+        await loadInbox(
+            page,
+            true
+        );
+
+    };
+
+    /* =====================================================
+       LOADING
+    ===================================================== */
 
     if (loading) {
 
         return (
-            <div className="h-full p-4 md:p-6">
+            <div className="h-full p-3 md:p-5">
 
-                <div className="mx-auto max-w-7xl">
+                <div className="mx-auto max-w-[1800px]">
 
-                    <div className="mb-5">
+                    {/* Header */}
+
+                    <div className="mb-4">
 
                         <div className="h-7 w-24 animate-pulse rounded bg-gray-200" />
 
@@ -301,27 +520,52 @@ const Inbox = () => {
 
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    {/* Two section skeleton */}
 
-                        {[1, 2, 3, 4, 5].map(
-                            (item) => (
-                                <div
-                                    key={item}
-                                    className="flex gap-4 border-b border-gray-100 p-5"
-                                >
-                                    <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
+                    <div className="grid min-h-[650px] overflow-hidden rounded-xl border border-gray-200 bg-white lg:grid-cols-[360px_minmax(0,1fr)]">
 
-                                    <div className="flex-1">
+                        {/* List */}
 
-                                        <div className="h-4 w-40 animate-pulse rounded bg-gray-200" />
+                        <div className="border-r border-gray-200">
 
-                                        <div className="mt-2 h-4 w-64 animate-pulse rounded bg-gray-200" />
+                            {[1, 2, 3, 4, 5, 6].map(
+                                (item) => (
+
+                                    <div
+                                        key={item}
+                                        className="flex gap-3 border-b border-gray-100 p-4"
+                                    >
+
+                                        <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-gray-200" />
+
+                                        <div className="flex-1">
+
+                                            <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
+
+                                            <div className="mt-2 h-3 w-24 animate-pulse rounded bg-gray-200" />
+
+                                            <div className="mt-3 h-3 w-full animate-pulse rounded bg-gray-200" />
+
+                                        </div>
 
                                     </div>
 
-                                </div>
-                            )
-                        )}
+                                )
+                            )}
+
+                        </div>
+
+                        {/* Viewer */}
+
+                        <div className="hidden lg:block">
+
+                            <div className="flex h-full min-h-[650px] items-center justify-center">
+
+                                <div className="h-20 w-20 animate-pulse rounded-full bg-gray-100" />
+
+                            </div>
+
+                        </div>
 
                     </div>
 
@@ -329,15 +573,23 @@ const Inbox = () => {
 
             </div>
         );
+
     }
 
+    /* =====================================================
+       MAIN UI
+    ===================================================== */
+
     return (
-        <div className="h-full p-4 md:p-6">
+        <div className="h-full p-3 md:p-5">
 
-            <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-[1800px]">
 
-                {/* Header */}
-                <div className="mb-5 flex items-center justify-between gap-4">
+                {/* =================================================
+                    HEADER
+                ================================================= */}
+
+                <div className="mb-4 flex items-center justify-between gap-4">
 
                     <div>
 
@@ -346,10 +598,12 @@ const Inbox = () => {
                         </h1>
 
                         <p className="mt-1 text-sm text-gray-500">
+
                             Your received messages
+
                             {pagination.total > 0 &&
-                                ` · ${pagination.total} messages`
-                            }
+                                ` · ${pagination.total} messages`}
+
                         </p>
 
                     </div>
@@ -360,15 +614,19 @@ const Inbox = () => {
                         disabled={refreshing}
                         className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
+
                         {refreshing
                             ? "Refreshing..."
-                            : "↻ Refresh"
-                        }
+                            : "↻ Refresh"}
+
                     </button>
 
                 </div>
 
-                {/* Error */}
+                {/* =================================================
+                    ERROR
+                ================================================= */}
+
                 {error && (
                     <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
 
@@ -377,6 +635,7 @@ const Inbox = () => {
                         </span>
 
                         <button
+                            type="button"
                             onClick={() =>
                                 loadInbox(page)
                             }
@@ -388,153 +647,341 @@ const Inbox = () => {
                     </div>
                 )}
 
-                {/* Messages */}
-                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                {/* =================================================
+                    MAIN SPLIT VIEW
+                ================================================= */}
 
-                    {messages.length === 0 ? (
+                <div className="grid min-h-[650px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:grid-cols-[360px_minmax(0,1fr)]">
 
-                        <div className="flex min-h-[400px] items-center justify-center">
+                    {/* =================================================
+                        SECTION 1 — MAIL LIST
+                    ================================================= */}
 
-                            <div className="text-center">
+                    <section
+                        className={`
+                            min-w-0
+                            border-gray-200
+                            lg:border-r
+                            ${
+                                selectedMessage
+                                    ? "hidden lg:block"
+                                    : "block"
+                            }
+                        `}
+                    >
 
-                                <div className="mb-4 text-6xl">
-                                    📥
+                        {/* List Header */}
+
+                        <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3">
+
+                            <div className="flex items-center justify-between">
+
+                                <div>
+
+                                    <h2 className="text-sm font-semibold text-gray-800">
+                                        Messages
+                                    </h2>
+
+                                    <p className="text-xs text-gray-400">
+                                        {messages.length} shown
+                                    </p>
+
                                 </div>
-
-                                <h2 className="font-semibold text-gray-700">
-                                    Your inbox is empty
-                                </h2>
-
-                                <p className="mt-1 text-sm text-gray-400">
-                                    New messages will appear here.
-                                </p>
 
                             </div>
 
                         </div>
 
-                    ) : (
+                        {/* Messages */}
 
-                        <div>
+                        {messages.length === 0 ? (
 
-                            {messages.map((message) => {
+                            <div className="flex min-h-[500px] items-center justify-center px-5">
 
-                                const read =
-                                    isRead(message);
+                                <div className="text-center">
 
-                                return (
-                                    <div
-                                        key={message._id}
-                                        className={`group flex items-center gap-3 border-b border-gray-100 px-4 py-4 transition hover:bg-blue-50 md:px-5 ${
-                                            !read
-                                                ? "bg-blue-50/40"
-                                                : "bg-white"
-                                        }`}
-                                    >
+                                    <div className="mb-4 text-5xl">
+                                        📥
+                                    </div>
 
-                                        {/* Avatar */}
-                                        <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700 sm:flex">
+                                    <h2 className="font-semibold text-gray-700">
+                                        Your inbox is empty
+                                    </h2>
 
-                                            {getSenderName(
+                                    <p className="mt-1 text-sm text-gray-400">
+                                        New messages will appear here.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        ) : (
+
+                            <div>
+
+                                {messages.map(
+                                    (message) => {
+
+                                        const read =
+                                            isRead(
                                                 message
-                                            )
-                                                .charAt(0)
-                                                .toUpperCase()}
+                                            );
 
-                                        </div>
+                                        const selected =
+                                            selectedMessage?._id ===
+                                            message._id;
 
-                                        {/* Message */}
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                handleMarkRead(
-                                                    message
-                                                )
-                                            }
-                                            className="min-w-0 flex-1 text-left"
-                                        >
+                                        return (
+                                            <button
+                                                key={
+                                                    message._id
+                                                }
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectMessage(
+                                                        message
+                                                    )
+                                                }
+                                                className={`
+                                                    group
+                                                    flex
+                                                    w-full
+                                                    items-start
+                                                    gap-3
+                                                    border-b
+                                                    border-gray-100
+                                                    px-4
+                                                    py-4
+                                                    text-left
+                                                    transition
 
-                                            <div className="flex items-center justify-between gap-3">
+                                                    ${
+                                                        selected
+                                                            ? "bg-indigo-50"
+                                                            : !read
+                                                            ? "bg-blue-50/40"
+                                                            : "bg-white hover:bg-gray-50"
+                                                    }
+                                                `}
+                                            >
 
-                                                <div className="min-w-0">
+                                                {/* Selected indicator */}
 
-                                                    <p
-                                                        className={`truncate text-sm ${
+                                                <div
+                                                    className={`
+                                                        mt-1
+                                                        h-2
+                                                        w-2
+                                                        shrink-0
+                                                        rounded-full
+
+                                                        ${
                                                             !read
-                                                                ? "font-bold text-gray-900"
-                                                                : "font-medium text-gray-700"
-                                                        }`}
-                                                    >
-                                                        {getSenderName(
-                                                            message
-                                                        )}
-                                                    </p>
+                                                                ? "bg-indigo-600"
+                                                                : "bg-transparent"
+                                                        }
+                                                    `}
+                                                />
 
-                                                    <p className="truncate text-xs text-gray-400">
+                                                {/* Avatar */}
+
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
+
+                                                    {getSenderName(
+                                                        message
+                                                    )
+                                                        .charAt(
+                                                            0
+                                                        )
+                                                        .toUpperCase()}
+
+                                                </div>
+
+                                                {/* Content */}
+
+                                                <div className="min-w-0 flex-1">
+
+                                                    <div className="flex items-start justify-between gap-2">
+
+                                                        <p
+                                                            className={`
+                                                                truncate
+                                                                text-sm
+
+                                                                ${
+                                                                    !read
+                                                                        ? "font-bold text-gray-900"
+                                                                        : "font-medium text-gray-700"
+                                                                }
+                                                            `}
+                                                        >
+                                                            {getSenderName(
+                                                                message
+                                                            )}
+                                                        </p>
+
+                                                        <span className="shrink-0 text-[11px] text-gray-400">
+
+                                                            {formatDate(
+                                                                message.sentAt ||
+                                                                message.createdAt
+                                                            )}
+
+                                                        </span>
+
+                                                    </div>
+
+                                                    <p className="mt-0.5 truncate text-xs text-gray-400">
+
                                                         {getSenderEmail(
                                                             message
                                                         )}
+
+                                                    </p>
+
+                                                    <p
+                                                        className={`
+                                                            mt-2
+                                                            truncate
+                                                            text-sm
+
+                                                            ${
+                                                                !read
+                                                                    ? "font-semibold text-gray-900"
+                                                                    : "text-gray-700"
+                                                            }
+                                                        `}
+                                                    >
+                                                        {message.subject ||
+                                                            "(No subject)"}
+                                                    </p>
+
+                                                    <p className="mt-1 truncate text-xs text-gray-400">
+
+                                                        {getPreview(
+                                                            message.body
+                                                        )}
+
                                                     </p>
 
                                                 </div>
 
-                                                <span className="shrink-0 text-xs text-gray-400">
-                                                    {formatDate(
-                                                        message.sentAt ||
-                                                        message.createdAt
-                                                    )}
-                                                </span>
-
-                                            </div>
-
-                                            <p
-                                                className={`mt-2 truncate text-sm ${
-                                                    !read
-                                                        ? "font-semibold text-gray-900"
-                                                        : "text-gray-700"
-                                                }`}
-                                            >
-                                                {message.subject ||
-                                                    "(No subject)"}
-                                            </p>
-
-                                            <p className="mt-1 truncate text-xs text-gray-400">
-                                                {getPreview(
-                                                    message.body
-                                                )}
-                                            </p>
-
-                                        </button>
-
-                                        {/* Actions */}
-                                        <div className="hidden shrink-0 items-center gap-1 group-hover:flex sm:flex">
-
-                                            <button
-                                                type="button"
-                                                title="Move to trash"
-                                                onClick={() =>
-                                                    handleTrash(
-                                                        message._id
-                                                    )
-                                                }
-                                                className="rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
-                                            >
-                                                🗑️
                                             </button>
+                                        );
 
-                                        </div>
+                                    }
+                                )}
 
+                            </div>
+
+                        )}
+
+                    </section>
+
+                    {/* =================================================
+                        SECTION 2 — MESSAGE VIEW
+                    ================================================= */}
+
+                    <section
+                        className={`
+                            min-w-0
+                            bg-white
+
+                            ${
+                                selectedMessage
+                                    ? "block"
+                                    : "hidden lg:block"
+                            }
+                        `}
+                    >
+
+                        {/* Mobile back */}
+
+                        {selectedMessage && (
+                            <div className="border-b border-gray-200 px-3 py-2 lg:hidden">
+
+                                <button
+                                    type="button"
+                                    onClick={
+                                        handleCloseMessage
+                                    }
+                                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                                >
+                                    ← Back to messages
+                                </button>
+
+                            </div>
+                        )}
+
+                        {/* Message loading */}
+
+                        {messageLoading ? (
+
+                            <div className="flex min-h-[600px] items-center justify-center">
+
+                                <div className="text-center">
+
+                                    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+
+                                    <p className="text-sm text-gray-500">
+                                        Loading message...
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        ) : messageError ? (
+
+                            <div className="flex min-h-[600px] items-center justify-center p-6">
+
+                                <div className="text-center">
+
+                                    <div className="mb-3 text-4xl">
+                                        ⚠️
                                     </div>
-                                );
-                            })}
 
-                        </div>
+                                    <h3 className="font-semibold text-gray-700">
+                                        Unable to open message
+                                    </h3>
 
-                    )}
+                                    <p className="mt-1 text-sm text-red-500">
+                                        {messageError}
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        ) : (
+
+                            <MessageViewer
+                                message={
+                                    selectedMessage
+                                }
+                                onClose={
+                                    handleCloseMessage
+                                }
+                                onMessageDeleted={
+                                    handleMessageDeleted
+                                }
+                                onMessageUpdated={
+                                    handleMessageUpdated
+                                }
+                                showCloseButton={false}
+                            />
+
+                        )}
+
+                    </section>
 
                 </div>
 
-                {/* Pagination */}
+                {/* =================================================
+                    PAGINATION
+                ================================================= */}
+
                 {pagination.pages > 1 && (
                     <div className="mt-4 flex items-center justify-between">
 
@@ -552,13 +999,15 @@ const Inbox = () => {
                         </button>
 
                         <span className="text-sm text-gray-500">
-                            Page {page} of {pagination.pages}
+                            Page {page} of{" "}
+                            {pagination.pages}
                         </span>
 
                         <button
                             type="button"
                             disabled={
-                                page >= pagination.pages
+                                page >=
+                                pagination.pages
                             }
                             onClick={() =>
                                 loadInbox(

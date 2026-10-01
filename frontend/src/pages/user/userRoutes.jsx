@@ -11,6 +11,8 @@ import Sent from "./Sent";
 import Drafts from "./Drafts";
 import Trash from "./Trash";
 import Profile from "./Profile";
+import MessageView from "./MessageView";
+import MessageViewer from "../../components/mail/MessageViewer";
 import UserDashboard from "./UserDashboard";
 
 const UserRoutes = () => {
@@ -20,10 +22,14 @@ const UserRoutes = () => {
 
             <Route
                 element={<MainLayout />}
-            >
+            >   
 
                 <Route
                     index
+                    element={<Navigate to="/user/inbox" replace />}
+                />
+
+                <Route
                     path="inbox"
                     element={<Inbox />}
                 />
@@ -41,6 +47,11 @@ const UserRoutes = () => {
                 <Route
                     path="trash"
                     element={<Trash />}
+                />
+
+                <Route
+                    path="message/:messageId"
+                    element={<MessageView />}
                 />
 
                 <Route
