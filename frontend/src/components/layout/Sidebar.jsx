@@ -63,7 +63,7 @@ const Sidebar = ({ mobile = false, onClose }) => {
                 <div className="flex h-16 items-center border-b border-slate-800 px-5">
 
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 font-bold">
-                        D
+                        {/* <img src="%PUBLIC%/image.png">   </img> */} D
                     </div>
 
                     <div className="ml-3">
