@@ -19,12 +19,6 @@ const startServer = async () => {
             console.log(`Server: ${process.env.VITE_API_URL}`);
             console.log(`API:    ${process.env.VITE_API_URL}/api`);
             console.log("--------------------------------");
-            // console.log("--------------------------------");
-            // console.log("      DARKMAIL BACKEND");
-            // console.log("--------------------------------");
-            // console.log(`Server: http://localhost:${PORT}`);
-            // console.log(`API:    http://localhost:${PORT}/api`);
-            // console.log("--------------------------------");
 
         });
 
