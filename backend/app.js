@@ -23,7 +23,7 @@ const allowedOrigins = [
     "http://172.16.21.189:5173",
 
     // Vercel frontend
-    "https://darkmail-frontend.vercel.app",
+    "https://dark-mail.vercel.app",
 ].filter(Boolean);
 
 
