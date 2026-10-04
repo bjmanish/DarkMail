@@ -97,7 +97,7 @@ const sendEmail = async ({
 
     };
 
-
+/*
     console.log(
         "SMTP SEND:",
         {
@@ -117,7 +117,7 @@ const sendEmail = async ({
                 mailOptions.subject
         }
     );
-
+*/
 
     const info =
         await transporter.sendMail(
@@ -125,10 +125,10 @@ const sendEmail = async ({
         );
 
 
-    console.log(
-        "SMTP EMAIL SENT:",
-        info.messageId
-    );
+    // console.log(
+    //     "SMTP EMAIL SENT:",
+    //     info.messageId
+    // );
 
 
     return info;

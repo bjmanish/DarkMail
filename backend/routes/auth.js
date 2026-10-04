@@ -2,7 +2,8 @@ const express = require("express");
 
 const {
     login,
-    getMe
+    getMe,
+    changePassword,
 } = require("../controllers/authController");
 
 const {
@@ -23,5 +24,14 @@ router.post("/login", login);
  */
 router.get("/me", authMiddleware, getMe);
 
+/*
+ * POST /api/auth/change-password
+ */
+
+router.post(
+    "/change-password",
+    authMiddleware,
+    changePassword
+);
 
 module.exports = router;

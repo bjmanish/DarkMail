@@ -8,21 +8,26 @@ const Employee = require("../models/Employee");
  * LOGIN
  */
 const login = async (req, res) => {
-
     try {
 
         const { email, password } = req.body;
+        // --------------------------------
+        // Validate request
+        // --------------------------------
 
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
-                message: "Email and password are required"
+                message: "Email and password are required."
             });
         }
 
-        const normalizedEmail = email
-            .trim()
-            .toLowerCase();
+        const normalizedEmail =
+            email.trim().toLowerCase();
+
+        // --------------------------------
+        // Find employee
+        // --------------------------------
 
         const employee = await Employee.findOne({
             email: normalizedEmail
@@ -31,85 +36,113 @@ const login = async (req, res) => {
         if (!employee) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid email or password"
+                message: "Invalid email or password."
             });
         }
 
-        if (!employee.isActive) {
-            return res.status(403).json({
+        // --------------------------------
+        // Check password field
+        // --------------------------------
+
+        if (!employee.password) {
+            return res.status(500).json({
                 success: false,
-                message: "Your account is inactive"
+                message:
+                    "Password is not configured for this account."
             });
         }
 
-        const passwordMatch = await bcrypt.compare(
-            password,
-            employee.password
-        );
+        // --------------------------------
+        // Compare password
+        // --------------------------------
 
-        if (!passwordMatch) {
+        const passwordMatched =
+            await bcrypt.compare(
+                password,
+                employee.password
+            );
+
+        if (!passwordMatched) {
+
             return res.status(401).json({
                 success: false,
-                message: "Invalid email or password"
+                message: "Invalid email or password."
             });
         }
 
+        // --------------------------------
+        // Check account status
+        // --------------------------------
 
-        /*
-         * UPDATE LAST LOGIN
-         */
-        employee.lastLogin = new Date();
+        if (employee.isActive === false) {
 
-        await employee.save();
+            return res.status(403).json({
+                success: false,
+                message: "Your account is inactive."
+            });
+        }
 
+        // --------------------------------
+        // Create JWT
+        // --------------------------------
 
-        /*
-         * CREATE JWT
-         */
         const token = jwt.sign(
             {
-                id: employee._id.toString(),
-                role: employee.role,
-                employeeId: employee.employeeId
+                id: employee._id,
+                employeeId: employee.employeeId,
+                email: employee.email,
+                role: employee.role
             },
             process.env.JWT_SECRET,
             {
-                expiresIn: "1d"
+                expiresIn: "2h"
             }
         );
 
+        // --------------------------------
+        // Response
+        // --------------------------------
 
-        /*
-         * RESPONSE
-         */
         return res.status(200).json({
+
             success: true,
-            message: "Login successful",
+
+            message: "Login successful.",
 
             token,
 
             user: {
+
                 id: employee._id,
-                employeeId: employee.employeeId,
-                name: employee.name,
-                email: employee.email,
-                personalEmail: employee.personalEmail,
-                role: employee.role,
-                department: employee.department,
-                designation: employee.designation,
-                hireDate: employee.hireDate,
-                isActive: employee.isActive,
-                lastLogin: employee.lastLogin
+
+                employeeId:
+                    employee.employeeId,
+
+                name:
+                    employee.name,
+
+                email:
+                    employee.email,
+
+                role:
+                    employee.role,
+
+                isActive:
+                    employee.isActive
             }
         });
 
     } catch (error) {
 
-        console.error("Login error:", error);
+        console.error(
+            "Login error:",
+            error
+        );
 
         return res.status(500).json({
             success: false,
-            message: "Internal server error"
+            message: "Internal server error.",
+            error: error.message
         });
     }
 };
@@ -141,7 +174,136 @@ const getMe = async (req, res) => {
     }
 };
 
+/*
+=========================================
+CHANGE PASSWORD
+=========================================
+*/
+
+const changePassword = async (req, res) => {
+    try {
+        const userId = req.user?._id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized user.",
+            });
+        }
+
+        const {
+            currentPassword,
+            newPassword,
+            confirmPassword,
+        } = req.body;
+
+        // -----------------------------------------------
+        // VALIDATION
+        // -----------------------------------------------
+
+        if (
+            !currentPassword ||
+            !newPassword ||
+            !confirmPassword
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "All password fields are required.",
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "New password and confirm password do not match.",
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "New password must contain at least 8 characters.",
+            });
+        }
+
+        if (currentPassword === newPassword) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "New password must be different from your current password.",
+            });
+        }
+
+        // -----------------------------------------------
+        // FIND USER
+        // -----------------------------------------------
+
+        const user = await Employee.findById(userId).select(
+            "+password"
+        );
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User account not found.",
+            });
+        }
+
+        // -----------------------------------------------
+        // CHECK CURRENT PASSWORD
+        // -----------------------------------------------
+
+        const passwordMatched = await bcrypt.compare(
+            currentPassword,
+            user.password
+        );
+
+        if (!passwordMatched) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password is incorrect.",
+            });
+        }
+
+        // -----------------------------------------------
+        // HASH NEW PASSWORD
+        // -----------------------------------------------
+
+        const hashedPassword = await bcrypt.hash(
+            newPassword,
+            12
+        );
+
+        user.password = hashedPassword;
+
+        await user.save();
+
+        // -----------------------------------------------
+        // RESPONSE
+        // -----------------------------------------------
+
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully.",
+        });
+
+    } catch (error) {
+        console.error(
+            "Change password error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to change password.",
+        });
+    }
+};
+
 module.exports = {
     login,
-    getMe
+    getMe,
+    changePassword,
 };
