@@ -1,80 +1,133 @@
 import {
     Navigate,
     Route,
-    Routes
+    Routes,
 } from "react-router-dom";
 
 import MainLayout from "../../components/layout/MainLayout";
 
-import Inbox from "./Inbox";
-import Sent from "./Sent";
-import Drafts from "./Drafts";
-import Trash from "./Trash";
+import MailUser from "./MailUser";
 import Profile from "./Profile";
-import MessageView from "./MessageView";
-import MessageViewer from "../../components/mail/MessageViewer";
-import UserDashboard from "./UserDashboard";
+import Settings from "./Setting";
+import ComposeModal from "../../components/mail/ComposeModal";
 
 const UserRoutes = () => {
 
     return (
         <Routes>
 
-            <Route
-                element={<MainLayout />}
-            >   
+            {/* =====================================================
+                USER MAIN LAYOUT
+            ====================================================== */}
 
+            <Route element={<MainLayout />}>
+
+                {/* /user */}
                 <Route
                     index
-                    element={<Navigate to="/user/inbox" replace />}
+                    element={
+                        <Navigate
+                            to="/user/mail?Folder=inbox"
+                            replace
+                        />
+                    }
                 />
+
+                {/* =================================================
+                    MAILBOX
+                ================================================== */}
+
+                <Route
+                    path="/*"
+                    element={<MailUser />}
+                />
+
+                {/* =================================================
+                    COMPOSE
+                ================================================== */}
+
+                <Route
+                    path="compose"
+                    element={<ComposeModal />}
+                />
+
+                {/* =================================================
+                    PROFILE
+                ================================================== */}
+
+                <Route
+                    path="profile"
+                    element={<Profile />}
+                />
+
+                {/* =================================================
+                    SETTINGS
+                ================================================== */}
+
+                <Route
+                    path="settings"
+                    element={<Settings />}
+                />
+
+                {/* =================================================
+                    OLD ROUTES
+                ================================================== */}
 
                 <Route
                     path="inbox"
-                    element={<Inbox />}
+                    element={
+                        <Navigate
+                            to="/user/mail?Folder=inbox"
+                            replace
+                        />
+                    }
                 />
 
                 <Route
                     path="sent"
-                    element={<Sent />}
+                    element={
+                        <Navigate
+                            to="/user/mail?Folder=sent"
+                            replace
+                        />
+                    }
                 />
 
                 <Route
                     path="drafts"
-                    element={<Drafts />}
+                    element={
+                        <Navigate
+                            to="/user/mail?Folder=drafts"
+                            replace
+                        />
+                    }
                 />
 
                 <Route
                     path="trash"
-                    element={<Trash />}
+                    element={
+                        <Navigate
+                            to="/user/mail?Folder=trash"
+                            replace
+                        />
+                    }
                 />
 
-                <Route
-                    path="message/:messageId"
-                    element={<MessageView />}
-                />
+                {/* =================================================
+                    FALLBACK
+                ================================================== */}
 
                 <Route
                     path="*"
                     element={
                         <Navigate
-                            to="/user"
+                            to="/user/mail?Folder=inbox"
                             replace
                         />
                     }
                 />
 
             </Route>
-
-            <Route
-              path="me"
-              element={<UserDashboard />}
-            />
-
-            <Route
-                path="profile"
-                element={<Profile />}
-            />
 
         </Routes>
     );

@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* =========================================================
+   DARKMAIL GLOBAL CSS
+   Tailwind CSS v4
+   Global Light / Dark Theme
+   ========================================================= */
+
+
+/* =========================================================
+   GLOBAL RESET
+   ========================================================= */
+
 * {
     box-sizing: border-box;
 }
@@ -13,6 +24,22 @@ body,
     min-height: 100%;
 }
 
+html {
+    color-scheme: light;
+    background: #f5f7fb;
+    scroll-behavior: smooth;
+}
+
+html.dark {
+    color-scheme: dark;
+    background: #0f172a;
+}
+
+
+/* =========================================================
+   BODY
+   ========================================================= */
+
 body {
     font-family:
         Inter,
@@ -25,9 +52,1090 @@ body {
 
     background: #f5f7fb;
     color: #111827;
+
+    min-width: 320px;
+
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease;
 }
 
+html.dark body {
+    background: #0f172a;
+    color: #e5e7eb;
+}
+
+
+/* =========================================================
+   ROOT
+   ========================================================= */
+
+#root {
+    background: transparent;
+}
+
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
 button,
-input {
+input,
+textarea,
+select {
     font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   INPUT TRANSITIONS
+   ========================================================= */
+
+input,
+textarea,
+select,
+button {
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        opacity 0.2s ease;
+}
+
+
+/* =========================================================
+   LIGHT MODE FORM CONTROLS
+   ========================================================= */
+
+input,
+textarea,
+select {
+    background-color: #ffffff;
+    color: #111827;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #9ca3af;
+}
+
+
+/* =========================================================
+   DARK MODE FORM CONTROLS
+   ========================================================= */
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+    color: #94a3b8;
+}
+
+html.dark select option {
+    background-color: #1e293b;
+    color: #f8fafc;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+
+/* =========================================================
+   GLOBAL WHITE BACKGROUNDS
+   ========================================================= */
+
+html.dark .bg-white {
+    background-color: #1e293b !important;
+}
+
+
+/* =========================================================
+   GLOBAL GRAY BACKGROUNDS
+   ========================================================= */
+
+html.dark .bg-gray-50 {
+    background-color: #0f172a !important;
+}
+
+html.dark .bg-gray-100 {
+    background-color: #1e293b !important;
+}
+
+html.dark .bg-gray-200 {
+    background-color: #334155 !important;
+}
+
+html.dark .bg-gray-300 {
+    background-color: #475569 !important;
+}
+
+
+/* =========================================================
+   SLATE BACKGROUNDS
+   ========================================================= */
+
+html.dark .bg-slate-50 {
+    background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-100 {
+    background-color: #1e293b !important;
+}
+
+html.dark .bg-slate-200 {
+    background-color: #334155 !important;
+}
+
+html.dark .bg-slate-300 {
+    background-color: #475569 !important;
+}
+
+html.dark .bg-slate-700 {
+    background-color: #334155 !important;
+}
+
+html.dark .bg-slate-800 {
+    background-color: #1e293b !important;
+}
+
+html.dark .bg-slate-900 {
+    background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-950 {
+    background-color: #020617 !important;
+}
+
+
+/* =========================================================
+   DARK MODE TEXT
+   ========================================================= */
+
+html.dark .text-gray-900 {
+    color: #f8fafc !important;
+}
+
+html.dark .text-gray-800 {
+    color: #f1f5f9 !important;
+}
+
+html.dark .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark .text-gray-600 {
+    color: #cbd5e1 !important;
+}
+
+html.dark .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+html.dark .text-gray-400 {
+    color: #94a3b8 !important;
+}
+
+html.dark .text-gray-300 {
+    color: #cbd5e1 !important;
+}
+
+
+/* =========================================================
+   SLATE TEXT
+   ========================================================= */
+
+html.dark .text-slate-950 {
+    color: #f8fafc !important;
+}
+
+html.dark .text-slate-900 {
+    color: #f8fafc !important;
+}
+
+html.dark .text-slate-800 {
+    color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-600 {
+    color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-500 {
+    color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+html.dark .text-slate-300 {
+    color: #cbd5e1 !important;
+}
+
+
+/* =========================================================
+   DARK MODE BORDERS
+   ========================================================= */
+
+html.dark .border-gray-100 {
+    border-color: #334155 !important;
+}
+
+html.dark .border-gray-200 {
+    border-color: #334155 !important;
+}
+
+html.dark .border-gray-300 {
+    border-color: #475569 !important;
+}
+
+html.dark .border-gray-400 {
+    border-color: #64748b !important;
+}
+
+
+/* =========================================================
+   SLATE BORDERS
+   ========================================================= */
+
+html.dark .border-slate-100 {
+    border-color: #334155 !important;
+}
+
+html.dark .border-slate-200 {
+    border-color: #334155 !important;
+}
+
+html.dark .border-slate-300 {
+    border-color: #475569 !important;
+}
+
+html.dark .border-slate-600 {
+    border-color: #475569 !important;
+}
+
+html.dark .border-slate-700 {
+    border-color: #334155 !important;
+}
+
+
+/* =========================================================
+   DIVIDERS
+   ========================================================= */
+
+html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #334155 !important;
+}
+
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #334155 !important;
+}
+
+html.dark .divide-slate-700 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #334155 !important;
+}
+
+
+/* =========================================================
+   HOVER STATES
+   ========================================================= */
+
+html.dark .hover\:bg-gray-50:hover {
+    background-color: #1e293b !important;
+}
+
+html.dark .hover\:bg-gray-100:hover {
+    background-color: #334155 !important;
+}
+
+html.dark .hover\:bg-gray-200:hover {
+    background-color: #475569 !important;
+}
+
+html.dark .hover\:bg-slate-700:hover {
+    background-color: #475569 !important;
+}
+
+html.dark .hover\:bg-slate-800:hover {
+    background-color: #334155 !important;
+}
+
+
+/* =========================================================
+   BLUE
+   ========================================================= */
+
+html.dark .bg-blue-50 {
+    background-color: #172554 !important;
+}
+
+html.dark .bg-blue-100 {
+    background-color: #1e3a8a !important;
+}
+
+html.dark .bg-blue-200 {
+    background-color: #1e40af !important;
+}
+
+html.dark .text-blue-600 {
+    color: #60a5fa !important;
+}
+
+html.dark .text-blue-700 {
+    color: #93c5fd !important;
+}
+
+html.dark .text-blue-800 {
+    color: #bfdbfe !important;
+}
+
+html.dark .text-blue-900 {
+    color: #dbeafe !important;
+}
+
+html.dark .border-blue-100 {
+    border-color: #1e3a8a !important;
+}
+
+html.dark .border-blue-200 {
+    border-color: #1e40af !important;
+}
+
+
+/* =========================================================
+   GREEN
+   ========================================================= */
+
+html.dark .bg-green-50 {
+    background-color: #052e16 !important;
+}
+
+html.dark .bg-green-100 {
+    background-color: #14532d !important;
+}
+
+html.dark .bg-green-200 {
+    background-color: #166534 !important;
+}
+
+html.dark .text-green-600 {
+    color: #4ade80 !important;
+}
+
+html.dark .text-green-700 {
+    color: #86efac !important;
+}
+
+html.dark .text-green-800 {
+    color: #bbf7d0 !important;
+}
+
+html.dark .border-green-200 {
+    border-color: #166534 !important;
+}
+
+
+/* =========================================================
+   RED
+   ========================================================= */
+
+html.dark .bg-red-50 {
+    background-color: #450a0a !important;
+}
+
+html.dark .bg-red-100 {
+    background-color: #7f1d1d !important;
+}
+
+html.dark .bg-red-200 {
+    background-color: #991b1b !important;
+}
+
+html.dark .text-red-600 {
+    color: #f87171 !important;
+}
+
+html.dark .text-red-700 {
+    color: #fca5a5 !important;
+}
+
+html.dark .text-red-800 {
+    color: #fecaca !important;
+}
+
+html.dark .border-red-200 {
+    border-color: #7f1d1d !important;
+}
+
+
+/* =========================================================
+   YELLOW
+   ========================================================= */
+
+html.dark .bg-yellow-50 {
+    background-color: #422006 !important;
+}
+
+html.dark .bg-yellow-100 {
+    background-color: #713f12 !important;
+}
+
+html.dark .bg-yellow-200 {
+    background-color: #854d0e !important;
+}
+
+html.dark .text-yellow-600 {
+    color: #facc15 !important;
+}
+
+html.dark .text-yellow-700 {
+    color: #fde047 !important;
+}
+
+html.dark .text-yellow-800 {
+    color: #fde68a !important;
+}
+
+html.dark .text-yellow-900 {
+    color: #fef3c7 !important;
+}
+
+html.dark .border-yellow-200 {
+    border-color: #854d0e !important;
+}
+
+
+/* =========================================================
+   PURPLE
+   ========================================================= */
+
+html.dark .bg-purple-50 {
+    background-color: #2e1065 !important;
+}
+
+html.dark .bg-purple-100 {
+    background-color: #4c1d95 !important;
+}
+
+html.dark .bg-purple-200 {
+    background-color: #5b21b6 !important;
+}
+
+html.dark .text-purple-600 {
+    color: #c084fc !important;
+}
+
+html.dark .text-purple-700 {
+    color: #d8b4fe !important;
+}
+
+html.dark .border-purple-200 {
+    border-color: #6b21a8 !important;
+}
+
+
+/* =========================================================
+   INDIGO
+   ========================================================= */
+
+html.dark .bg-indigo-50 {
+    background-color: #1e1b4b !important;
+}
+
+html.dark .bg-indigo-100 {
+    background-color: #312e81 !important;
+}
+
+html.dark .text-indigo-600 {
+    color: #818cf8 !important;
+}
+
+html.dark .text-indigo-700 {
+    color: #a5b4fc !important;
+}
+
+
+/* =========================================================
+   DARKMAIL HEADER
+   ========================================================= */
+
+/*
+   Any application header using bg-white will become
+   dark automatically.
+*/
+
+html.dark header {
+    background-color: #1e293b !important;
+    color: #f8fafc;
+    border-color: #334155 !important;
+}
+
+html.dark header .text-gray-900 {
+    color: #f8fafc !important;
+}
+
+html.dark header .text-gray-800 {
+    color: #f1f5f9 !important;
+}
+
+html.dark header .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark header .text-gray-600 {
+    color: #cbd5e1 !important;
+}
+
+html.dark header .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+html.dark header button {
+    color: #cbd5e1;
+}
+
+html.dark header button:hover {
+    background-color: #334155 !important;
+}
+
+html.dark header input {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+html.dark header input::placeholder {
+    color: #94a3b8 !important;
+}
+
+
+/* =========================================================
+   DARKMAIL SIDEBAR
+   ========================================================= */
+
+html.dark aside {
+    color: #e2e8f0;
+}
+
+html.dark aside .bg-white {
+    background-color: #1e293b !important;
+}
+
+html.dark aside .text-gray-900 {
+    color: #f8fafc !important;
+}
+
+html.dark aside .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark aside .text-gray-600 {
+    color: #cbd5e1 !important;
+}
+
+html.dark aside .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+html.dark aside .border-gray-200 {
+    border-color: #334155 !important;
+}
+
+
+/* =========================================================
+   MAIL LIST / MESSAGE LIST
+   ========================================================= */
+
+html.dark .mail-list,
+html.dark .message-list {
+    background-color: #1e293b !important;
+    color: #e2e8f0;
+}
+
+html.dark .mail-item,
+html.dark .message-item {
+    border-color: #334155 !important;
+    background-color: transparent;
+    color: #e2e8f0;
+}
+
+html.dark .mail-item:hover,
+html.dark .message-item:hover {
+    background-color: #334155 !important;
+}
+
+
+/* =========================================================
+   MESSAGE VIEWER
+   ========================================================= */
+
+html.dark .message-viewer {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+
+html.dark .message-viewer h1,
+html.dark .message-viewer h2,
+html.dark .message-viewer h3,
+html.dark .message-viewer h4,
+html.dark .message-viewer h5 {
+    color: #f8fafc !important;
+}
+
+html.dark .message-viewer p {
+    color: #cbd5e1;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+html.dark .empty-state {
+    background-color: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
+html.dark .card {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+
+
+/* =========================================================
+   TABLES
+   ========================================================= */
+
+html.dark table {
+    color: #e2e8f0;
+}
+
+html.dark thead {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+html.dark tbody {
+    background-color: #1e293b;
+}
+
+html.dark tbody tr {
+    border-color: #334155 !important;
+}
+
+html.dark tbody tr:hover {
+    background-color: #334155 !important;
+}
+
+
+/* =========================================================
+   DROPDOWNS
+   ========================================================= */
+
+html.dark [role="menu"] {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #334155 !important;
+}
+
+html.dark [role="menuitem"] {
+    color: #e2e8f0 !important;
+}
+
+html.dark [role="menuitem"]:hover {
+    background-color: #334155 !important;
+}
+
+
+/* =========================================================
+   MODALS
+   ========================================================= */
+
+html.dark .modal,
+html.dark .modal-content {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+html.dark .modal .text-gray-900,
+html.dark .modal-content .text-gray-900 {
+    color: #f8fafc !important;
+}
+
+html.dark .modal .text-gray-700,
+html.dark .modal-content .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark .modal .text-gray-500,
+html.dark .modal-content .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+
+/* =========================================================
+   MODAL BACKDROP
+   ========================================================= */
+
+html.dark .bg-black\/40 {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+html.dark .bg-black\/50 {
+    background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+html.dark .bg-black\/60 {
+    background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+
+/* =========================================================
+   SETTINGS / PROFILE
+   ========================================================= */
+
+html.dark main {
+    color: #e2e8f0;
+}
+
+html.dark main .bg-white {
+    background-color: #1e293b !important;
+}
+
+html.dark main .text-gray-900 {
+    color: #f8fafc !important;
+}
+
+html.dark main .text-gray-800 {
+    color: #f1f5f9 !important;
+}
+
+html.dark main .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark main .text-gray-600 {
+    color: #cbd5e1 !important;
+}
+
+html.dark main .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+html.dark main .border-gray-200 {
+    border-color: #334155 !important;
+}
+
+
+/* =========================================================
+   SEARCH
+   ========================================================= */
+
+html.dark input[type="search"] {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+html.dark input[type="search"]::placeholder {
+    color: #94a3b8 !important;
+}
+
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+a {
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease;
+}
+
+html.dark a {
+    color: #93c5fd;
+}
+
+html.dark a:hover {
+    color: #bfdbfe;
+}
+
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+html.dark ::selection {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+
+/* =========================================================
+   SCROLLBAR - LIGHT
+   ========================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+
+/* =========================================================
+   SCROLLBAR - DARK
+   ========================================================= */
+
+html.dark ::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+
+/* =========================================================
+   SHADOWS
+   ========================================================= */
+
+html.dark .shadow-sm {
+    --tw-shadow-color: rgba(0, 0, 0, 0.25);
+}
+
+html.dark .shadow {
+    --tw-shadow-color: rgba(0, 0, 0, 0.30);
+}
+
+html.dark .shadow-md {
+    --tw-shadow-color: rgba(0, 0, 0, 0.35);
+}
+
+html.dark .shadow-lg {
+    --tw-shadow-color: rgba(0, 0, 0, 0.40);
+}
+
+html.dark .shadow-xl {
+    --tw-shadow-color: rgba(0, 0, 0, 0.45);
+}
+
+html.dark .shadow-2xl {
+    --tw-shadow-color: rgba(0, 0, 0, 0.50);
+}
+
+
+/* =========================================================
+   DIVIDER / HR
+   ========================================================= */
+
+html.dark hr {
+    border-color: #334155;
+}
+
+
+/* =========================================================
+   DISABLED ELEMENTS
+   ========================================================= */
+
+html.dark input:disabled,
+html.dark textarea:disabled,
+html.dark select:disabled {
+    background-color: #0f172a !important;
+    color: #64748b !important;
+    opacity: 0.75;
+}
+
+
+/* =========================================================
+   CHECKBOX / RADIO
+   ========================================================= */
+
+html.dark input[type="checkbox"],
+html.dark input[type="radio"] {
+    accent-color: #3b82f6;
+}
+
+
+/* =========================================================
+   FILE INPUT
+   ========================================================= */
+
+html.dark input[type="file"] {
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+
+/* =========================================================
+   TOOLTIPS
+   ========================================================= */
+
+html.dark [data-tooltip] {
+    color: #f8fafc;
+}
+
+
+/* =========================================================
+   GLOBAL TRANSITIONS
+   ========================================================= */
+
+body,
+header,
+aside,
+main,
+section,
+article,
+nav,
+button,
+input,
+textarea,
+select,
+.bg-white,
+.bg-gray-50,
+.bg-gray-100,
+.bg-gray-200 {
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 640px) {
+
+    html,
+    body {
+        overflow-x: hidden;
+    }
+
+    body {
+        min-width: 320px;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+        max-width: 100%;
+    }
+
+    /*
+       Prevent long email addresses and subjects
+       from breaking mobile layouts.
+    */
+
+    p,
+    span,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        overflow-wrap: anywhere;
+    }
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (min-width: 641px) and (max-width: 1024px) {
+
+    body {
+        min-width: 0;
+    }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+
+        transition-duration: 0.01ms !important;
+
+        animation-duration: 0.01ms !important;
+
+        animation-iteration-count: 1 !important;
+    }
 }

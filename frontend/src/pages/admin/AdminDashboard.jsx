@@ -10,7 +10,6 @@ import {
 } from "../../context/AuthContext";
 
 const AdminDashboard = () => {
-
     const {
         user,
         logout

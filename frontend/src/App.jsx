@@ -1,53 +1,55 @@
 import {
     Navigate,
     Route,
-    Routes
+    Routes,
 } from "react-router-dom";
 
 import Login from "./pages/auth/Login";
 
-import AdminRoutes from "./pages/admin/AdminRoutes";
+import AdminRoutes
+    from "./pages/admin/AdminRoutes";
 
-import UserRoutes from "./pages/user/userRoutes";
+import UserRoutes from  "./pages/user/userRoutes";
 
-import ProtectedRoute from "./components/common/ProtectedRoute";
 
 const App = () => {
 
     return (
+
         <Routes>
 
-            {/* Login */}
+            {/* LOGIN */}
+
             <Route
                 path="/login"
-                element={<Login />}
+                element={
+                    <Login />
+                }
             />
 
-            {/* Admin */}
+
+            {/* ADMIN */}
+
             <Route
                 path="/admin/*"
                 element={
-                    <ProtectedRoute
-                        allowedRoles={["ADMIN"]}
-                    >
-                        <AdminRoutes />
-                    </ProtectedRoute>
+                    <AdminRoutes />
                 }
             />
 
-            {/* User */}
+
+            {/* USER / EMPLOYEE */}
+
             <Route
                 path="/user/*"
                 element={
-                    <ProtectedRoute
-                        allowedRoles={["USER", "ADMIN"]}
-                    >
-                        <UserRoutes />
-                    </ProtectedRoute>
+                    <UserRoutes />
                 }
             />
 
-            {/* Root */}
+
+            {/* ROOT */}
+
             <Route
                 path="/"
                 element={
@@ -58,7 +60,9 @@ const App = () => {
                 }
             />
 
-            {/* Unknown */}
+
+            {/* FALLBACK */}
+
             <Route
                 path="*"
                 element={
@@ -72,5 +76,6 @@ const App = () => {
         </Routes>
     );
 };
+
 
 export default App;

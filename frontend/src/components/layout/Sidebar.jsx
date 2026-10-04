@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useState } from "react";
 import ComposeModal from "../mail/ComposeModal";
+import { FiInbox, FiSend, FiFileText, FiTrash2, FiGrid } from "react-icons/fi";
 
 const Sidebar = ({ mobile = false, onClose }) => {
     const { user, logout } = useAuth();
@@ -12,27 +13,27 @@ const Sidebar = ({ mobile = false, onClose }) => {
         {
             label: "Inbox",
             path: "/user/inbox",
-            icon: "📥"
+            icon: <FiInbox />
         },
         {
             label: "Sent",
             path: "/user/sent",
-            icon: "📤"
+            icon: <FiSend />
         },
         {
             label: "Drafts",
             path: "/user/drafts",
-            icon: "📝"
+            icon: <FiFileText />
         },
         {
             label: "Trash",
             path: "/user/trash",
-            icon: "🗑️"
+            icon: <FiTrash2 />
         },
         {
             label: "Dashboard",
             path: "/user/me",
-            icon: ""
+            icon: <FiGrid />
         }
     ];
 
@@ -140,7 +141,7 @@ const Sidebar = ({ mobile = false, onClose }) => {
                                 </span>
 
                                 <span>
-                                    {item.label}
+                                    {item.label} 
                                 </span>
 
                             </NavLink>

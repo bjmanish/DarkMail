@@ -6,11 +6,16 @@ import {
 } from "react-router-dom";
 
 import App from "./App";
-import "./index.css";
 
 import {
     AuthProvider
 } from "./context/AuthContext";
+
+import {
+    ThemeProvider
+} from "./context/ThemeContext";
+
+import "./index.css";
 
 ReactDOM.createRoot(
     document.getElementById("root")
@@ -20,11 +25,15 @@ ReactDOM.createRoot(
 
         <BrowserRouter>
 
-            <AuthProvider>
+            <ThemeProvider>
 
-                <App />
+                <AuthProvider>
 
-            </AuthProvider>
+                    <App />
+
+                </AuthProvider>
+
+            </ThemeProvider>
 
         </BrowserRouter>
 
