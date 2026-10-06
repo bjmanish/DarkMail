@@ -14,7 +14,7 @@ import {
 import MessageViewer from "../../components/mail/MessageViewer";
 
 
-const LIMIT = 20;
+const LIMIT = 50;
 
 
 const Inbox = () => {
@@ -23,11 +23,13 @@ const Inbox = () => {
     // STATE
     // ============================================================
 
-    const [messages, setMessages] =
-        useState([]);
+    const [messages, setMessages] = useState([]);
 
     const [selectedMessage, setSelectedMessage] =
         useState(null);
+
+    const [selectedMessages, setSelectedMessages] =
+        useState([]);
 
     const [loading, setLoading] =
         useState(true);
@@ -57,35 +59,25 @@ const Inbox = () => {
 
 
     // ============================================================
-    // UNREAD COUNT
-    // ============================================================
-
-    const unreadCount =
-        messages.filter(
-            (message) =>
-                !message?.isRead
-        ).length;
-
-
-    // ============================================================
     // LOAD INBOX
     // ============================================================
 
     const loadInbox = useCallback(
         async (
             currentPage = 1,
-            showRefresh = false
+            isRefresh = false
         ) => {
 
             try {
 
                 setError("");
 
-                if (showRefresh) {
+                if (isRefresh) {
                     setRefreshing(true);
                 } else {
                     setLoading(true);
                 }
+
 
                 const response =
                     await getMessagesApi({
@@ -94,25 +86,30 @@ const Inbox = () => {
                         limit: LIMIT,
                     });
 
+
                 if (!response?.success) {
 
                     throw new Error(
                         response?.message ||
                         "Unable to load inbox."
                     );
+
                 }
 
-                const inboxMessages =
+
+                const responseMessages =
                     response?.messages ||
                     response?.data ||
                     [];
 
+
                 const safeMessages =
                     Array.isArray(
-                        inboxMessages
+                        responseMessages
                     )
-                        ? inboxMessages
+                        ? responseMessages
                         : [];
+
 
                 setMessages(
                     safeMessages
@@ -128,6 +125,7 @@ const Inbox = () => {
                 ) {
 
                     setPagination({
+
                         page:
                             Number(
                                 response.pagination.page
@@ -151,30 +149,47 @@ const Inbox = () => {
                                 response.pagination.pages
                             ) ||
                             1,
+
                     });
 
                 } else {
 
-                    setPagination({
-                        page: currentPage,
+                    const total =
+                        Number(
+                            response?.total
+                        ) ||
+                        safeMessages.length;
 
-                        limit: LIMIT,
 
-                        total:
-                            Number(
-                                response?.total
-                            ) ||
-                            safeMessages.length,
-
-                        pages:
-                            Number(
-                                response?.pages
-                            ) ||
-                            Number(
-                                response?.totalPages
-                            ) ||
+                    const pages =
+                        Number(
+                            response?.pages
+                        ) ||
+                        Number(
+                            response?.totalPages
+                        ) ||
+                        Math.max(
                             1,
+                            Math.ceil(
+                                total / LIMIT
+                            )
+                        );
+
+
+                    setPagination({
+
+                        page:
+                            currentPage,
+
+                        limit:
+                            LIMIT,
+
+                        total,
+
+                        pages,
+
                     });
+
                 }
 
 
@@ -183,31 +198,6 @@ const Inbox = () => {
                 );
 
 
-                // ------------------------------------------------
-                // Keep selected message updated
-                // ------------------------------------------------
-
-                if (
-                    selectedMessage?._id
-                ) {
-
-                    const updatedMessage =
-                        safeMessages.find(
-                            (item) =>
-                                item._id ===
-                                selectedMessage._id
-                        );
-
-                    if (
-                        updatedMessage
-                    ) {
-
-                        setSelectedMessage(
-                            updatedMessage
-                        );
-                    }
-                }
-
             } catch (err) {
 
                 console.error(
@@ -215,22 +205,26 @@ const Inbox = () => {
                     err
                 );
 
+
                 setError(
                     err?.response?.data?.message ||
                     err?.message ||
                     "Unable to load inbox."
                 );
 
+
                 setMessages([]);
 
             } finally {
 
                 setLoading(false);
+
                 setRefreshing(false);
+
             }
 
         },
-        [selectedMessage?._id]
+        []
     );
 
 
@@ -242,7 +236,42 @@ const Inbox = () => {
 
         loadInbox(1);
 
-    }, []);
+    }, [loadInbox]);
+
+
+    // ============================================================
+    // UNREAD COUNT
+    // ============================================================
+
+    const unreadCount =
+        messages.filter(
+            (message) =>
+                !message?.isRead
+        ).length;
+
+
+    // ============================================================
+    // SELECTED COUNT
+    // ============================================================
+
+    const selectedCount =
+        selectedMessages.length;
+
+
+    // ============================================================
+    // SELECT ALL
+    // ============================================================
+
+    const allSelected =
+        messages.length > 0 &&
+        selectedMessages.length ===
+            messages.length;
+
+
+    const partiallySelected =
+        selectedMessages.length > 0 &&
+        selectedMessages.length <
+            messages.length;
 
 
     // ============================================================
@@ -252,197 +281,18 @@ const Inbox = () => {
     const handleRefresh = () => {
 
         if (
-            loading ||
-            refreshing
+            refreshing ||
+            loading
         ) {
             return;
         }
+
 
         loadInbox(
             page,
             true
         );
-    };
 
-
-    // ============================================================
-    // CHECK READ
-    // ============================================================
-
-    const isRead = (
-        message
-    ) => {
-
-        if (
-            typeof message?.isRead ===
-            "boolean"
-        ) {
-
-            return message.isRead;
-        }
-
-        return false;
-    };
-
-
-    // ============================================================
-    // SENDER NAME
-    // ============================================================
-
-    const getSenderName = (
-        message
-    ) => {
-
-        if (!message?.sender) {
-            return "Unknown sender";
-        }
-
-        if (
-            typeof message.sender ===
-            "object"
-        ) {
-
-            return (
-                message.sender.name ||
-                message.sender.fullName ||
-                message.sender.employeeName ||
-                message.sender.email ||
-                "Unknown sender"
-            );
-        }
-
-        return String(
-            message.sender
-        );
-    };
-
-
-    // ============================================================
-    // SENDER EMAIL
-    // ============================================================
-
-    const getSenderEmail = (
-        message
-    ) => {
-
-        if (
-            message?.sender &&
-            typeof message.sender ===
-            "object"
-        ) {
-
-            return (
-                message.sender.email ||
-                ""
-            );
-        }
-
-        return "";
-    };
-
-
-    // ============================================================
-    // SENDER INITIAL
-    // ============================================================
-
-    const getSenderInitial = (
-        message
-    ) => {
-
-        const name =
-            getSenderName(
-                message
-            );
-
-        return (
-            name
-                ?.charAt(0)
-                ?.toUpperCase() ||
-            "?"
-        );
-    };
-
-
-    // ============================================================
-    // FORMAT DATE
-    // ============================================================
-
-    const formatDate = (
-        date
-    ) => {
-
-        if (!date) {
-            return "";
-        }
-
-        const value =
-            new Date(date);
-
-        if (
-            Number.isNaN(
-                value.getTime()
-            )
-        ) {
-
-            return "";
-        }
-
-        const now =
-            new Date();
-
-        const isToday =
-            value.toDateString() ===
-            now.toDateString();
-
-        if (isToday) {
-
-            return value.toLocaleTimeString(
-                [],
-                {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                }
-            );
-        }
-
-        return value.toLocaleDateString(
-            [],
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-            }
-        );
-    };
-
-
-    // ============================================================
-    // MESSAGE PREVIEW
-    // ============================================================
-
-    const getPreview = (
-        body
-    ) => {
-
-        if (!body) {
-            return "No message content";
-        }
-
-        return String(body)
-            .replace(
-                /<[^>]*>/g,
-                " "
-            )
-            .replace(
-                /\s+/g,
-                " "
-            )
-            .trim()
-            .slice(
-                0,
-                160
-            ) ||
-            "No message content";
     };
 
 
@@ -459,6 +309,7 @@ const Inbox = () => {
                 return;
             }
 
+
             try {
 
                 setMessageError("");
@@ -467,21 +318,31 @@ const Inbox = () => {
                     true
                 );
 
-                // ------------------------------------------------
-                // Immediately display selected message
-                // ------------------------------------------------
+
+                /*
+                 * Immediately display the message.
+                 * This makes the UI feel instant.
+                 */
 
                 setSelectedMessage(
                     message
                 );
 
 
+                /*
+                 * Remove checkbox selection
+                 * when opening a message.
+                 */
+
+                setSelectedMessages([]);
+
+
                 // ------------------------------------------------
-                // Mark as read
+                // MARK AS READ
                 // ------------------------------------------------
 
                 if (
-                    !isRead(message)
+                    !message.isRead
                 ) {
 
                     try {
@@ -490,24 +351,18 @@ const Inbox = () => {
                             message._id
                         );
 
+
                         setMessages(
                             (previous) =>
                                 previous.map(
-                                    (item) => {
-
-                                        if (
-                                            item._id !==
-                                            message._id
-                                        ) {
-
-                                            return item;
-                                        }
-
-                                        return {
-                                            ...item,
-                                            isRead: true,
-                                        };
-                                    }
+                                    (item) =>
+                                        item._id ===
+                                        message._id
+                                            ? {
+                                                  ...item,
+                                                  isRead: true,
+                                              }
+                                            : item
                                 )
                         );
 
@@ -516,41 +371,53 @@ const Inbox = () => {
                     ) {
 
                         console.warn(
-                            "Mark message as read error:",
+                            "Mark as read failed:",
                             readError
                         );
+
                     }
+
                 }
 
 
                 // ------------------------------------------------
-                // Get complete message
+                // GET FULL MESSAGE
                 // ------------------------------------------------
 
-                const response =
-                    await getMessageByIdApi(
-                        message._id
-                    );
-
                 if (
-                    response?.success &&
-                    response?.data
+                    typeof getMessageByIdApi ===
+                    "function"
                 ) {
 
-                    setSelectedMessage(
-                        response.data
-                    );
+                    const response =
+                        await getMessageByIdApi(
+                            message._id
+                        );
 
-                } else if (
-                    response?.success &&
-                    response?.message &&
-                    typeof response.message ===
-                        "object"
-                ) {
 
-                    setSelectedMessage(
-                        response.message
-                    );
+                    if (
+                        response?.success
+                    ) {
+
+                        const fullMessage =
+                            response?.data ||
+                            response?.message;
+
+
+                        if (
+                            fullMessage &&
+                            typeof fullMessage ===
+                                "object"
+                        ) {
+
+                            setSelectedMessage(
+                                fullMessage
+                            );
+
+                        }
+
+                    }
+
                 }
 
             } catch (err) {
@@ -559,6 +426,7 @@ const Inbox = () => {
                     "Message loading error:",
                     err
                 );
+
 
                 setMessageError(
                     err?.response?.data?.message ||
@@ -571,7 +439,9 @@ const Inbox = () => {
                 setMessageLoading(
                     false
                 );
+
             }
+
         };
 
 
@@ -590,11 +460,301 @@ const Inbox = () => {
         setMessageLoading(
             false
         );
+
     };
 
 
     // ============================================================
-    // DELETE MESSAGE
+    // SELECT CHECKBOX
+    // ============================================================
+
+    const handleSelectCheckbox = (
+        messageId
+    ) => {
+
+        if (!messageId) {
+            return;
+        }
+
+
+        setSelectedMessages(
+            (previous) => {
+
+                if (
+                    previous.includes(
+                        messageId
+                    )
+                ) {
+
+                    return previous.filter(
+                        (id) =>
+                            id !==
+                            messageId
+                    );
+
+                }
+
+
+                return [
+                    ...previous,
+                    messageId,
+                ];
+
+            }
+        );
+
+    };
+
+
+    // ============================================================
+    // SELECT ALL
+    // ============================================================
+
+    const handleSelectAll = () => {
+
+        if (
+            messages.length === 0
+        ) {
+            return;
+        }
+
+
+        if (
+            allSelected
+        ) {
+
+            setSelectedMessages([]);
+
+            return;
+
+        }
+
+
+        setSelectedMessages(
+            messages
+                .map(
+                    (message) =>
+                        message?._id
+                )
+                .filter(Boolean)
+        );
+
+    };
+
+
+    // ============================================================
+    // CLEAR SELECTION
+    // ============================================================
+
+    const handleClearSelection = () => {
+
+        setSelectedMessages([]);
+
+    };
+
+
+    // ============================================================
+    // MESSAGE SELECTED CHECK
+    // ============================================================
+
+    const isSelected = (
+        messageId
+    ) => {
+
+        return selectedMessages.includes(
+            messageId
+        );
+
+    };
+
+
+    // ============================================================
+    // SENDER NAME
+    // ============================================================
+
+    const getSenderName = (
+        message
+    ) => {
+
+        const sender =
+            message?.sender;
+
+
+        if (!sender) {
+            return "Unknown sender";
+        }
+
+
+        if (
+            typeof sender ===
+            "string"
+        ) {
+
+            return sender;
+
+        }
+
+
+        return (
+            sender.name ||
+            sender.fullName ||
+            sender.employeeName ||
+            sender.username ||
+            sender.email ||
+            "Unknown sender"
+        );
+
+    };
+
+
+    // ============================================================
+    // SENDER EMAIL
+    // ============================================================
+
+    const getSenderEmail = (
+        message
+    ) => {
+
+        const sender =
+            message?.sender;
+
+
+        if (
+            !sender ||
+            typeof sender ===
+                "string"
+        ) {
+
+            return "";
+
+        }
+
+
+        return (
+            sender.email ||
+            sender.emailAddress ||
+            ""
+        );
+
+    };
+
+
+    // ============================================================
+    // SENDER INITIAL
+    // ============================================================
+
+    const getInitial = (
+        message
+    ) => {
+
+        return (
+            getSenderName(message)
+                ?.charAt(0)
+                ?.toUpperCase() ||
+            "U"
+        );
+
+    };
+
+
+    // ============================================================
+    // FORMAT DATE
+    // ============================================================
+
+    const formatDate = (
+        date
+    ) => {
+
+        if (!date) {
+            return "";
+        }
+
+
+        const parsed =
+            new Date(date);
+
+
+        if (
+            Number.isNaN(
+                parsed.getTime()
+            )
+        ) {
+
+            return "";
+
+        }
+
+
+        const now =
+            new Date();
+
+
+        const isToday =
+            parsed.toDateString() ===
+            now.toDateString();
+
+
+        if (isToday) {
+
+            return parsed.toLocaleTimeString(
+                "en-IN",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }
+            );
+
+        }
+
+
+        return parsed.toLocaleDateString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }
+        );
+
+    };
+
+
+    // ============================================================
+    // MESSAGE PREVIEW
+    // ============================================================
+
+    const getPreview = (
+        body
+    ) => {
+
+        if (!body) {
+
+            return "No message content";
+
+        }
+
+
+        return String(body)
+            .replace(
+                /<[^>]*>/g,
+                " "
+            )
+            .replace(
+                /\s+/g,
+                " "
+            )
+            .trim()
+            .slice(
+                0,
+                150
+            ) ||
+            "No message content";
+
+    };
+
+
+    // ============================================================
+    // DELETE / MOVE TO TRASH
     // ============================================================
 
     const handleDelete = async (
@@ -605,11 +765,29 @@ const Inbox = () => {
             return;
         }
 
+
         try {
 
-            await moveMessageToTrashApi(
-                messageId
-            );
+            const response =
+                await moveMessageToTrashApi(
+                    messageId
+                );
+
+
+            if (
+                response &&
+                response.success === false
+            ) {
+
+                throw new Error(
+                    response.message ||
+                    "Unable to move message to trash."
+                );
+
+            }
+
+
+            // Remove from inbox
 
             setMessages(
                 (previous) =>
@@ -620,39 +798,64 @@ const Inbox = () => {
                     )
             );
 
+
+            // Remove from selection
+
+            setSelectedMessages(
+                (previous) =>
+                    previous.filter(
+                        (id) =>
+                            id !==
+                            messageId
+                    )
+            );
+
+
+            // Close full-screen viewer
+
             setSelectedMessage(
                 null
             );
+
 
             setMessageError("");
 
         } catch (err) {
 
             console.error(
-                "Move message to trash error:",
+                "Move to trash error:",
                 err
             );
+
 
             setMessageError(
                 err?.response?.data?.message ||
                 err?.message ||
                 "Unable to move message to trash."
             );
+
         }
+
     };
 
 
     // ============================================================
-    // REFRESH AFTER MESSAGE ACTION
+    // MESSAGE UPDATED
     // ============================================================
 
     const handleMessageUpdated =
         async () => {
 
+            /*
+             * Refresh the inbox without
+             * opening the list beside the viewer.
+             */
+
             await loadInbox(
                 page,
                 true
             );
+
         };
 
 
@@ -669,15 +872,20 @@ const Inbox = () => {
             return;
         }
 
+
         setSelectedMessage(
             null
         );
 
+        setSelectedMessages([]);
+
         setMessageError("");
+
 
         loadInbox(
             page - 1
         );
+
     };
 
 
@@ -689,8 +897,9 @@ const Inbox = () => {
 
         const totalPages =
             Number(
-                pagination?.pages
+                pagination.pages
             ) || 1;
+
 
         if (
             page >= totalPages ||
@@ -699,15 +908,20 @@ const Inbox = () => {
             return;
         }
 
+
         setSelectedMessage(
             null
         );
 
+        setSelectedMessages([]);
+
         setMessageError("");
+
 
         loadInbox(
             page + 1
         );
+
     };
 
 
@@ -719,8 +933,9 @@ const Inbox = () => {
 
         const totalPages =
             Number(
-                pagination?.pages
+                pagination.pages
             ) || 1;
+
 
         if (
             totalPages <= 5
@@ -734,15 +949,25 @@ const Inbox = () => {
                 (_, index) =>
                     index + 1
             );
+
         }
 
-        const pages = [];
 
-        pages.push(1);
+        const result = [];
 
-        if (page > 3) {
-            pages.push("...");
+        result.push(1);
+
+
+        if (
+            page > 3
+        ) {
+
+            result.push(
+                "..."
+            );
+
         }
+
 
         const start =
             Math.max(
@@ -750,11 +975,13 @@ const Inbox = () => {
                 page - 1
             );
 
+
         const end =
             Math.min(
                 totalPages - 1,
                 page + 1
             );
+
 
         for (
             let index = start;
@@ -762,258 +989,32 @@ const Inbox = () => {
             index++
         ) {
 
-            pages.push(
+            result.push(
                 index
             );
+
         }
+
 
         if (
             page <
             totalPages - 2
         ) {
 
-            pages.push(
+            result.push(
                 "..."
             );
+
         }
 
-        pages.push(
+
+        result.push(
             totalPages
         );
 
-        return pages;
-    };
 
+        return result;
 
-    // ============================================================
-    // MESSAGE CARD
-    // ============================================================
-
-    const renderMessageCard = (
-        message
-    ) => {
-
-        const read =
-            isRead(message);
-
-        const selected =
-            selectedMessage?._id ===
-            message._id;
-
-        return (
-
-            <button
-                key={message._id}
-                type="button"
-                onClick={() =>
-                    handleSelectMessage(message)
-                }
-                className={`
-                    w-full
-                    text-left
-                    px-3
-                    xl:px-4
-                    py-3
-                    xl:py-4
-                    transition
-                    focus:outline-none
-                    border-l-4
-                    ${
-                        selected
-                            ? "bg-blue-50 border-l-blue-500"
-                            : "hover:bg-gray-50 border-l-transparent"
-                    }
-                `}
-            >
-
-                <div
-                    className="
-                        flex
-                        items-start
-                        gap-3
-                        min-w-0
-                    "
-                >
-
-                    {/* INBOX ICON */}
-
-                    <div
-                        className={`
-                            shrink-0
-                            w-9
-                            h-9
-                            sm:w-10
-                            sm:h-10
-                            rounded-full
-                            flex
-                            items-center
-                            justify-center
-                            font-semibold
-                            text-lg
-                            ${
-                                !read
-                                    ? "bg-blue-100 text-blue-600"
-                                    : "bg-gray-100 text-gray-500"
-                            }
-                        `}
-                    >
-                        ↓
-                    </div>
-
-
-                    {/* MESSAGE CONTENT */}
-
-                    <div
-                        className="
-                            min-w-0
-                            flex-1
-                        "
-                    >
-
-                        {/* SUBJECT + INBOX BADGE */}
-
-                        <div
-                            className="
-                                flex
-                                items-center
-                                gap-2
-                                min-w-0
-                            "
-                        >
-
-                            <span
-                                className="
-                                    shrink-0
-                                    px-1.5
-                                    sm:px-2
-                                    py-0.5
-                                    text-[10px]
-                                    sm:text-xs
-                                    rounded
-                                    bg-blue-100
-                                    text-blue-600
-                                    font-medium
-                                "
-                            >
-                                Inbox
-                            </span>
-
-                            <span
-                                className={`
-                                    min-w-0
-                                    flex-1
-                                    truncate
-                                    text-sm
-                                    sm:text-base
-                                    ${
-                                        read
-                                            ? "font-medium text-gray-800"
-                                            : "font-bold text-gray-900"
-                                    }
-                                `}
-                            >
-                                {message.subject ||
-                                    "(No Subject)"}
-                            </span>
-
-                            {/* UNREAD BADGE */}
-
-                            {!read && (
-                                <span
-                                    className="
-                                        shrink-0
-                                        min-w-5
-                                        h-5
-                                        px-1.5
-                                        rounded-full
-                                        bg-blue-600
-                                        text-white
-                                        text-[10px]
-                                        font-bold
-                                        flex
-                                        items-center
-                                        justify-center
-                                    "
-                                    title="Unread"
-                                >
-                                    1
-                                </span>
-                            )}
-
-                        </div>
-
-
-                        {/* FROM */}
-
-                        <div
-                            className="
-                                text-xs
-                                sm:text-sm
-                                text-gray-500
-                                mt-1
-                                truncate
-                            "
-                        >
-                            From:{" "}
-                            {getSenderName(message)}
-                        </div>
-
-
-                        {/* EMAIL */}
-
-                        {getSenderEmail(message) && (
-                            <div
-                                className="
-                                    text-[10px]
-                                    sm:text-xs
-                                    text-gray-400
-                                    mt-0.5
-                                    truncate
-                                "
-                            >
-                                {getSenderEmail(message)}
-                            </div>
-                        )}
-
-
-                        {/* PREVIEW */}
-
-                        <div
-                            className="
-                                text-xs
-                                sm:text-sm
-                                text-gray-500
-                                mt-1.5
-                                line-clamp-2
-                                break-words
-                            "
-                        >
-                            {getPreview(message.body)}
-                        </div>
-
-
-                        {/* DATE */}
-
-                        <div
-                            className="
-                                text-[11px]
-                                sm:text-xs
-                                text-gray-400
-                                mt-2
-                            "
-                        >
-                            {formatDate(
-                                message.sentAt ||
-                                message.createdAt
-                            )}
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </button>
-        );
     };
 
 
@@ -1053,8 +1054,19 @@ const Inbox = () => {
 
                             <div
                                 className="
-                                    w-10
+                                    mt-3
+                                    h-4
+                                    w-4
+                                    shrink-0
+                                    rounded
+                                    bg-gray-200
+                                "
+                            />
+
+                            <div
+                                className="
                                     h-10
+                                    w-10
                                     shrink-0
                                     rounded-full
                                     bg-gray-200
@@ -1063,15 +1075,15 @@ const Inbox = () => {
 
                             <div
                                 className="
-                                    flex-1
                                     min-w-0
+                                    flex-1
                                 "
                             >
 
                                 <div
                                     className="
                                         h-4
-                                        w-32
+                                        w-36
                                         rounded
                                         bg-gray-200
                                     "
@@ -1110,11 +1122,14 @@ const Inbox = () => {
                             </div>
 
                         </div>
+
                     )
                 )}
 
             </div>
+
         );
+
     };
 
 
@@ -1128,38 +1143,39 @@ const Inbox = () => {
 
             <div
                 className="
-                    h-full
-                    min-h-[280px]
                     flex
+                    h-full
+                    min-h-[300px]
                     items-center
                     justify-center
-                    
+                    px-5
                 "
             >
 
                 <div
                     className="
+                        max-w-sm
                         text-center
-                        max-w-xs
                     "
                 >
 
                     <div
                         className="
-                            w-16
-                            h-16
                             mx-auto
                             mb-4
-                            rounded-full
-                            bg-blue-50
                             flex
+                            h-16
+                            w-16
                             items-center
                             justify-center
+                            rounded-full
+                            bg-blue-50
                             text-3xl
                         "
                     >
                         📥
                     </div>
+
 
                     <h2
                         className="
@@ -1169,6 +1185,7 @@ const Inbox = () => {
                     >
                         Your inbox is empty
                     </h2>
+
 
                     <p
                         className="
@@ -1184,532 +1201,812 @@ const Inbox = () => {
                 </div>
 
             </div>
+
         );
+
     };
 
 
     // ============================================================
-    // DEFAULT RIGHT PANEL
+    // SELECTION TOOLBAR
     // ============================================================
 
-    const renderDefaultPanel = () => {
+    const renderSelectionToolbar = () => {
+
+        if (
+            messages.length === 0
+        ) {
+            return null;
+        }
+
 
         return (
 
             <div
                 className="
-                    h-full
-                    min-h-0
                     flex
-                    justify-center
-                    bg-gray-50
-                    px-10
-                    py-30
+                    min-h-[54px]
+                    shrink-0
+                    items-center
+                    justify-between
+                    gap-3
+                    border-b
+                    border-gray-200
+                    bg-white
+                    px-3
+                    sm:px-4
                 "
             >
 
                 <div
                     className="
-                        text-center
-                        max-w-md
+                        flex
+                        min-w-0
+                        items-center
+                        gap-3
+                    "
+                >
+
+                    <label
+                        className="
+                            flex
+                            shrink-0
+                            cursor-pointer
+                            select-none
+                            items-center
+                            gap-2
+                            text-xs
+                            text-gray-600
+                            sm:text-sm
+                        "
+                    >
+
+                        <input
+                            type="checkbox"
+                            checked={
+                                allSelected
+                            }
+                            ref={(
+                                element
+                            ) => {
+
+                                if (
+                                    element
+                                ) {
+
+                                    element.indeterminate =
+                                        partiallySelected;
+
+                                }
+
+                            }}
+                            onChange={
+                                handleSelectAll
+                            }
+                            className="
+                                h-4
+                                w-4
+                                cursor-pointer
+                                rounded
+                                border-gray-300
+                                text-blue-600
+                                focus:ring-2
+                                focus:ring-blue-500
+                            "
+                        />
+
+                        <span>
+                            Select All
+                        </span>
+
+                    </label>
+
+
+                    {selectedCount > 0 && (
+
+                        <span
+                            className="
+                                shrink-0
+                                rounded-full
+                                bg-blue-50
+                                px-2.5
+                                py-1
+                                text-[11px]
+                                font-semibold
+                                text-blue-600
+                                sm:text-xs
+                            "
+                        >
+                            {selectedCount} selected
+                        </span>
+
+                    )}
+
+                </div>
+
+
+                {selectedCount > 0 && (
+
+                    <button
+                        type="button"
+                        onClick={
+                            handleClearSelection
+                        }
+                        className="
+                            shrink-0
+                            rounded-lg
+                            px-2
+                            py-1
+                            text-xs
+                            font-medium
+                            text-gray-500
+                            transition
+                            hover:bg-red-50
+                            hover:text-red-600
+                        "
+                    >
+                        Clear
+                    </button>
+
+                )}
+
+            </div>
+
+        );
+
+    };
+
+
+    // ============================================================
+    // PAGINATION
+    // ============================================================
+
+    const renderPagination = () => {
+
+        if (
+            loading ||
+            messages.length === 0
+        ) {
+            return null;
+        }
+
+
+        const totalPages =
+            Number(
+                pagination.pages
+            ) || 1;
+
+
+        return (
+
+            <div
+                className="
+                    shrink-0
+                    border-t
+                    border-gray-200
+                    bg-white
+                    px-3
+                    py-3
+                    sm:px-4
+                "
+            >
+
+                <div
+                    className="
+                        flex
+                        items-center
+                        justify-between
+                        gap-2
+                    "
+                >
+
+                    <button
+                        type="button"
+                        onClick={
+                            handlePreviousPage
+                        }
+                        disabled={
+                            page <= 1
+                        }
+                        className="
+                            rounded-lg
+                            border
+                            border-gray-200
+                            px-3
+                            py-2
+                            text-xs
+                            text-gray-700
+                            transition
+                            hover:bg-gray-50
+                            disabled:cursor-not-allowed
+                            disabled:opacity-40
+                            sm:text-sm
+                        "
+                    >
+                        Previous
+                    </button>
+
+
+                    <div
+                        className="
+                            hidden
+                            items-center
+                            gap-1
+                            sm:flex
+                        "
+                    >
+
+                        {getPageNumbers().map(
+                            (
+                                pageNumber,
+                                index
+                            ) => {
+
+                                if (
+                                    pageNumber ===
+                                    "..."
+                                ) {
+
+                                    return (
+
+                                        <span
+                                            key={
+                                                `dots-${index}`
+                                            }
+                                            className="
+                                                px-1
+                                                text-xs
+                                                text-gray-400
+                                            "
+                                        >
+                                            ...
+                                        </span>
+
+                                    );
+
+                                }
+
+
+                                return (
+
+                                    <button
+                                        key={
+                                            pageNumber
+                                        }
+                                        type="button"
+                                        onClick={() => {
+
+                                            if (
+                                                pageNumber ===
+                                                page
+                                            ) {
+                                                return;
+                                            }
+
+
+                                            setSelectedMessage(
+                                                null
+                                            );
+
+                                            setSelectedMessages(
+                                                []
+                                            );
+
+                                            loadInbox(
+                                                pageNumber
+                                            );
+
+                                        }}
+                                        className={`
+                                            h-8
+                                            w-8
+                                            rounded-md
+                                            text-xs
+                                            transition
+                                            ${
+                                                pageNumber ===
+                                                page
+                                                    ? "bg-blue-600 text-white"
+                                                    : "text-gray-600 hover:bg-gray-100"
+                                            }
+                                        `}
+                                    >
+                                        {
+                                            pageNumber
+                                        }
+                                    </button>
+
+                                );
+
+                            }
+                        )}
+
+                    </div>
+
+
+                    <span
+                        className="
+                            text-xs
+                            text-gray-500
+                            sm:hidden
+                        "
+                    >
+                        {page} /{" "}
+                        {totalPages}
+                    </span>
+
+
+                    <button
+                        type="button"
+                        onClick={
+                            handleNextPage
+                        }
+                        disabled={
+                            page >=
+                            totalPages
+                        }
+                        className="
+                            rounded-lg
+                            border
+                            border-gray-200
+                            px-3
+                            py-2
+                            text-xs
+                            text-gray-700
+                            transition
+                            hover:bg-gray-50
+                            disabled:cursor-not-allowed
+                            disabled:opacity-40
+                            sm:text-sm
+                        "
+                    >
+                        Next
+                    </button>
+
+                </div>
+
+            </div>
+
+        );
+
+    };
+
+
+    // ============================================================
+    // MESSAGE CARD
+    // ============================================================
+
+    const renderMessageCard = (
+        message
+    ) => {
+
+        const checked =
+            isSelected(
+                message?._id
+            );
+
+
+        const unread =
+            !message?.isRead;
+
+
+        return (
+
+            <div
+                key={
+                    message?._id
+                }
+                className={`
+                    flex
+                    w-full
+                    items-start
+                    gap-2
+                    border-l-4
+                    px-3
+                    py-3
+                    transition
+                    sm:px-4
+                    sm:py-4
+                    ${
+                        checked
+                            ? "border-l-blue-500 bg-blue-50"
+                            : "border-l-transparent hover:bg-gray-50"
+                    }
+                `}
+            >
+
+                {/* ==================================================
+                    CHECKBOX
+                ================================================== */}
+
+                <div
+                    className="
+                        flex
+                        shrink-0
+                        items-center
+                        justify-center
+                        pt-2
+                    "
+                >
+
+                    <input
+                        type="checkbox"
+                        checked={
+                            checked
+                        }
+                        onChange={() =>
+                            handleSelectCheckbox(
+                                message?._id
+                            )
+                        }
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
+                        className="
+                            h-4
+                            w-4
+                            cursor-pointer
+                            rounded
+                            border-gray-300
+                            text-blue-600
+                            focus:ring-2
+                            focus:ring-blue-500
+                        "
+                    />
+
+                </div>
+
+
+                {/* ==================================================
+                    MESSAGE
+                ================================================== */}
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        handleSelectMessage(
+                            message
+                        )
+                    }
+                    className="
+                        min-w-0
+                        flex-1
+                        text-left
+                        outline-none
                     "
                 >
 
                     <div
                         className="
-                            w-20
-                            h-20
-                            mx-auto
-                            mb-7
-                            rounded-full
-                            bg-white
-                            border
-                            border-gray-200
-                            shadow-sm
                             flex
-                            items-center
-                            justify-center
-                            text-4xl
+                            min-w-0
+                            items-start
+                            gap-3
                         "
                     >
-                        📥
+
+                        {/* AVATAR */}
+
+                        <div
+                            className={`
+                                flex
+                                h-9
+                                w-9
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-sm
+                                font-semibold
+                                sm:h-10
+                                sm:w-10
+                                ${
+                                    unread
+                                        ? "bg-indigo-100 text-indigo-600"
+                                        : "bg-gray-100 text-gray-500"
+                                }
+                            `}
+                        >
+                            {getInitial(
+                                message
+                            )}
+                        </div>
+
+
+                        {/* CONTENT */}
+
+                        <div
+                            className="
+                                min-w-0
+                                flex-1
+                            "
+                        >
+
+                            {/* TOP */}
+
+                            <div
+                                className="
+                                    flex
+                                    min-w-0
+                                    items-center
+                                    gap-2
+                                "
+                            >
+
+                                <span
+                                    className={`
+                                        min-w-0
+                                        flex-1
+                                        truncate
+                                        text-sm
+                                        sm:text-base
+                                        ${
+                                            unread
+                                                ? "font-bold text-gray-900"
+                                                : "font-medium text-gray-800"
+                                        }
+                                    `}
+                                >
+                                    {
+                                        getSenderName(
+                                            message
+                                        )
+                                    }
+                                </span>
+
+
+                                <span
+                                    className="
+                                        shrink-0
+                                        text-[10px]
+                                        text-gray-400
+                                        sm:text-xs
+                                    "
+                                >
+                                    {
+                                        formatDate(
+                                            message?.sentAt ||
+                                            message?.createdAt
+                                        )
+                                    }
+                                </span>
+
+                            </div>
+
+
+                            {/* SUBJECT */}
+
+                            <div
+                                className={`
+                                    mt-1
+                                    truncate
+                                    text-sm
+                                    sm:text-base
+                                    ${
+                                        unread
+                                            ? "font-semibold text-gray-900"
+                                            : "font-medium text-gray-700"
+                                    }
+                                `}
+                            >
+                                {
+                                    message?.subject ||
+                                    "(No Subject)"
+                                }
+                            </div>
+
+
+                            {/* PREVIEW */}
+
+                            <div
+                                className="
+                                    mt-1
+                                    line-clamp-2
+                                    break-words
+                                    text-xs
+                                    text-gray-500
+                                    sm:text-sm
+                                "
+                            >
+                                {
+                                    getPreview(
+                                        message?.body
+                                    )
+                                }
+                            </div>
+
+                        </div>
+
                     </div>
 
-                    <h2
-                        className="
-                            text-lg
-                            xl:text-xl
-                            font-semibold
-                            text-gray-700
-                        "
-                    >
-                        Select an inbox message
-                    </h2>
-
-                    <p
-                        className="
-                            text-sm
-                            text-gray-500
-                            mt-2
-                        "
-                    >
-                        Select a message from the list to view its complete contents.
-                    </p>
-
-                </div>
+                </button>
 
             </div>
+
         );
+
     };
 
 
     // ============================================================
-    // RETURN
+    // FULL-SCREEN MESSAGE VIEW
     // ============================================================
 
-    return (
+    const renderMessageView = () => {
 
-        <div
-            className="
-                w-full
-                h-full
-                min-h-0
-                max-h-full
-                overflow-hidden
-                bg-white
-            "
-        >
-
-            {/* ====================================================
-                MOBILE + TABLET
-            ===================================================== */}
+        return (
 
             <div
                 className="
-                    lg:hidden
-                    w-full
+                    relative
+                    flex
                     h-full
                     min-h-0
+                    w-full
+                    min-w-0
+                    flex-1
+                    overflow-hidden
+                    bg-white
                 "
             >
 
-                {!selectedMessage ? (
+                {/* =================================================
+                    LOADING OVERLAY
+                ================================================== */}
+
+                {messageLoading && (
 
                     <div
                         className="
-                            h-full
-                            min-h-0
+                            absolute
+                            inset-0
+                            z-50
                             flex
-                            flex-col
-                            bg-white
+                            items-center
+                            justify-center
+                            bg-white/60
+                            backdrop-blur-[1px]
                         "
                     >
 
-                        {/* ==========================================
-                            MOBILE HEADER
-                        =========================================== */}
-
                         <div
                             className="
-                                shrink-0
-                                flex
-                                items-center
-                                justify-between
-                                gap-3
-                                px-3
-                                sm:px-4
-                                py-3
-                                sm:py-4
-                                border-b
-                                border-gray-200
-                                bg-white
+                                h-9
+                                w-9
+                                animate-spin
+                                rounded-full
+                                border-2
+                                border-blue-600
+                                border-t-transparent
                             "
-                        >
-
-                            <div
-                                className="
-                                    min-w-0
-                                "
-                            >
-
-                                <div
-                                    className="
-                                        flex
-                                        items-center
-                                        gap-2
-                                    "
-                                >
-
-                                    <h1
-                                        className="
-                                            text-lg
-                                            sm:text-xl
-                                            font-semibold
-                                            text-gray-800
-                                        "
-                                    >
-                                        Inbox
-                                    </h1>
-
-
-                                    {/* BADGE */}
-
-                                    {unreadCount > 0 && (
-
-                                        <span
-                                            className="
-                                                min-w-6
-                                                h-6
-                                                px-2
-                                                rounded-full
-                                                bg-blue-600
-                                                text-white
-                                                text-xs
-                                                font-bold
-                                                flex
-                                                items-center
-                                                justify-center
-                                            "
-                                        >
-                                            {unreadCount > 99
-                                                ? "99+"
-                                                : unreadCount}
-                                        </span>
-
-                                    )}
-
-                                </div>
-
-
-                                <p
-                                    className="
-                                        mt-0.5
-                                        text-xs
-                                        sm:text-sm
-                                        text-gray-500
-                                    "
-                                >
-                                    {pagination.total > 0
-                                        ? `${pagination.total} messages`
-                                        : "Your received messages"}
-                                </p>
-
-                            </div>
-
-
-                            {/* REFRESH */}
-
-                            <button
-                                type="button"
-                                onClick={
-                                    handleRefresh
-                                }
-                                disabled={
-                                    refreshing
-                                }
-                                className="
-                                    shrink-0
-                                    w-9
-                                    h-9
-                                    sm:w-10
-                                    sm:h-10
-                                    rounded-lg
-                                    border
-                                    border-gray-200
-                                    flex
-                                    items-center
-                                    justify-center
-                                    text-gray-600
-                                    hover:bg-gray-50
-                                    active:bg-gray-100
-                                    disabled:opacity-50
-                                    transition
-                                "
-                                title="Refresh inbox"
-                            >
-                                {refreshing
-                                    ? "..."
-                                    : "↻"}
-                            </button>
-
-                        </div>
-
-
-                        {/* ERROR */}
-
-                        {error && (
-
-                            <div
-                                className="
-                                    shrink-0
-                                    mx-3
-                                    sm:mx-4
-                                    mt-3
-                                    p-3
-                                    rounded-lg
-                                    border
-                                    border-red-200
-                                    bg-red-50
-                                    text-red-600
-                                    text-xs
-                                    sm:text-sm
-                                "
-                            >
-                                {error}
-                            </div>
-
-                        )}
-
-
-                        {/* LIST */}
-
-                        <div
-                            className="
-                                flex-1
-                                min-h-0
-                                overflow-y-auto
-                                overflow-x-hidden
-                                overscroll-contain
-                            "
-                        >
-
-                            {loading ? (
-
-                                renderSkeletons(6)
-
-                            ) : messages.length === 0 ? (
-
-                                renderEmptyState()
-
-                            ) : (
-
-                                <div
-                                    className="
-                                        divide-y
-                                        divide-gray-100
-                                    "
-                                >
-
-                                    {messages.map(
-                                        renderMessageCard
-                                    )}
-
-                                </div>
-
-                            )}
-
-                        </div>
-
-
-                        {/* MOBILE PAGINATION */}
-
-                        {!loading &&
-                            messages.length > 0 && (
-
-                                <div
-                                    className="
-                                        shrink-0
-                                        border-t
-                                        border-gray-200
-                                        bg-white
-                                        px-3
-                                        sm:px-4
-                                        py-2.5
-                                        sm:py-3
-                                        flex
-                                        items-center
-                                        justify-between
-                                        gap-2
-                                    "
-                                >
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handlePreviousPage
-                                        }
-                                        disabled={
-                                            page <= 1
-                                        }
-                                        className="
-                                            px-3
-                                            py-2
-                                            rounded-lg
-                                            border
-                                            border-gray-200
-                                            text-xs
-                                            sm:text-sm
-                                            text-gray-700
-                                            hover:bg-gray-50
-                                            disabled:opacity-40
-                                            disabled:cursor-not-allowed
-                                        "
-                                    >
-                                        Previous
-                                    </button>
-
-
-                                    <span
-                                        className="
-                                            text-xs
-                                            sm:text-sm
-                                            text-gray-500
-                                            whitespace-nowrap
-                                        "
-                                    >
-                                        {page} /{" "}
-                                        {pagination.pages}
-                                    </span>
-
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handleNextPage
-                                        }
-                                        disabled={
-                                            page >=
-                                            pagination.pages
-                                        }
-                                        className="
-                                            px-3
-                                            py-2
-                                            rounded-lg
-                                            border
-                                            border-gray-200
-                                            text-xs
-                                            sm:text-sm
-                                            text-gray-700
-                                            hover:bg-gray-50
-                                            disabled:opacity-40
-                                            disabled:cursor-not-allowed
-                                        "
-                                    >
-                                        Next
-                                    </button>
-
-                                </div>
-
-                            )}
-
-                    </div>
-
-                ) : (
-
-                    /* ==============================================
-                       MOBILE MESSAGE VIEWER
-                    =============================================== */
-
-                    <div
-                        className="
-                            h-full
-                            min-h-0
-                            overflow-hidden
-                            relative
-                        "
-                    >
-
-                        {messageLoading && (
-
-                            <div
-                                className="
-                                    absolute
-                                    inset-0
-                                    z-20
-                                    flex
-                                    items-center
-                                    justify-center
-                                    bg-white/70
-                                    backdrop-blur-sm
-                                "
-                            >
-
-                                <div
-                                    className="
-                                        w-8
-                                        h-8
-                                        rounded-full
-                                        border-2
-                                        border-blue-600
-                                        border-t-transparent
-                                        animate-spin
-                                    "
-                                />
-
-                            </div>
-                        )}
-
-
-                        <MessageViewer
-                            message={
-                                selectedMessage
-                            }
-                            folder="inbox"
-                            onClose={
-                                handleCloseMessage
-                            }
-                            onRefresh={
-                                handleMessageUpdated
-                            }
-                            onDelete={
-                                handleDelete
-                            }
                         />
 
                     </div>
 
                 )}
 
+
+                {/* =================================================
+                    MESSAGE VIEWER
+                ================================================== */}
+
+                <div
+                    className="
+                        h-full
+                        min-h-0
+                        
+                        min-w-10
+                        flex-wrap
+                        overflow-x
+                    "
+                >
+
+                    <MessageViewer
+                        message={
+                            selectedMessage
+                        }
+
+                        onClose={
+                            handleCloseMessage
+                        }
+
+                        onMessageDeleted={
+                            handleDelete
+                        }
+
+                        onMessageUpdated={
+                            handleMessageUpdated
+                        }
+
+                        showCloseButton={
+                            true
+                        }
+                    />
+
+                </div>
+
+
+                {/* =================================================
+                    ERROR
+                ================================================== */}
+
+                {messageError && (
+
+                    <div
+                        className="
+                            absolute
+                            bottom-4
+                            left-4
+                            right-4
+                            z-[60]
+                            rounded-lg
+                            border
+                            border-red-200
+                            bg-red-50
+                            px-4
+                            py-3
+                            text-sm
+                            text-red-700
+                            shadow-lg
+                        "
+                    >
+                        {messageError}
+                    </div>
+
+                )}
+
             </div>
 
+        );
 
-            {/* ====================================================
-                DESKTOP
-            ===================================================== */}
+    };
+
+
+    // ============================================================
+    // FULL-SCREEN INBOX VIEW
+    // ============================================================
+
+    const renderInbox = () => {
+
+        return (
 
             <div
                 className="
-                    hidden
-                    lg:grid
-                    w-full
+                    flex
                     h-full
                     min-h-0
-                    max-h-full
+                    w-full
+                    min-w-0
+                    flex-col
                     overflow-hidden
-                    grid-cols-[minmax(300px,360px)_minmax(0,1fr)]
-                    xl:grid-cols-[380px_minmax(0,1fr)]
-                    2xl:grid-cols-[420px_minmax(0,1fr)]
+                    bg-white
                 "
             >
 
                 {/* =================================================
-                    LEFT MAIL LIST
+                    HEADER
                 ================================================== */}
 
-                <section
+                <div
                     className="
-                        min-w-0
-                        min-h-0
-                        h-full
-                        overflow-hidden
-                        border-r
+                        flex
+                        shrink-0
+                        items-center
+                        justify-between
+                        gap-3
+                        border-b
                         border-gray-200
                         bg-white
-                        flex
-                        flex-col
+                        px-4
+                        py-4
+                        sm:px-5
+                        lg:px-6
                     "
                 >
 
-                    {/* HEADER */}
-
                     <div
                         className="
-                            shrink-0
-                            px-4
-                            xl:px-5
-                            py-4
-                            border-b
-                            border-gray-200
+                            min-w-0
                         "
                     >
 
@@ -1717,461 +2014,228 @@ const Inbox = () => {
                             className="
                                 flex
                                 items-center
-                                justify-between
-                                gap-3
+                                gap-2
                             "
                         >
 
-                            <div
+                            <h1
                                 className="
-                                    min-w-0
+                                    text-lg
+                                    font-semibold
+                                    text-gray-800
+                                    sm:text-xl
                                 "
                             >
+                                Inbox
+                            </h1>
 
-                                <div
+
+                            {unreadCount > 0 && (
+
+                                <span
                                     className="
                                         flex
+                                        h-6
+                                        min-w-6
                                         items-center
-                                        gap-2
-                                    "
-                                >
-
-                                    <h1
-                                        className="
-                                            text-lg
-                                            xl:text-xl
-                                            font-semibold
-                                            text-gray-800
-                                        "
-                                    >
-                                        Inbox
-                                    </h1>
-
-
-                                    {/* UNREAD BADGE */}
-
-                                    {unreadCount > 0 && (
-
-                                        <span
-                                            className="
-                                                min-w-6
-                                                h-6
-                                                px-2
-                                                rounded-full
-                                                bg-blue-600
-                                                text-white
-                                                text-xs
-                                                font-bold
-                                                flex
-                                                items-center
-                                                justify-center
-                                            "
-                                        >
-                                            {unreadCount > 99
-                                                ? "99+"
-                                                : unreadCount}
-                                        </span>
-
-                                    )}
-
-                                </div>
-
-
-                                <p
-                                    className="
-                                        mt-1
+                                        justify-center
+                                        rounded-full
+                                        bg-blue-600
+                                        px-2
                                         text-xs
-                                        xl:text-sm
-                                        text-gray-500
+                                        font-bold
+                                        text-white
                                     "
                                 >
-                                    {pagination.total > 0
-                                        ? `${pagination.total} messages`
-                                        : "Your received messages"}
-                                </p>
+                                    {unreadCount > 99
+                                        ? "99+"
+                                        : unreadCount}
+                                </span>
 
-                            </div>
-
-
-                            {/* REFRESH */}
-
-                            <button
-                                type="button"
-                                onClick={
-                                    handleRefresh
-                                }
-                                disabled={
-                                    refreshing
-                                }
-                                className="
-                                    shrink-0
-                                    w-9
-                                    h-9
-                                    rounded-lg
-                                    border
-                                    border-gray-200
-                                    flex
-                                    items-center
-                                    justify-center
-                                    text-gray-600
-                                    hover:bg-gray-50
-                                    disabled:opacity-50
-                                    transition
-                                "
-                                title="Refresh inbox"
-                            >
-                                {refreshing
-                                    ? "..."
-                                    : "↻"}
-                            </button>
+                            )}
 
                         </div>
 
-                    </div>
 
-
-                    {/* ERROR */}
-
-                    {error && (
-
-                        <div
+                        <p
                             className="
-                                shrink-0
-                                m-3
-                                p-3
-                                rounded-lg
-                                border
-                                border-red-200
-                                bg-red-50
-                                text-red-600
-                                text-sm
+                                mt-1
+                                text-xs
+                                text-gray-500
+                                sm:text-sm
                             "
                         >
-                            {error}
-                        </div>
-
-                    )}
-
-
-                    {/* MESSAGE LIST */}
-
-                    <div
-                        className="
-                            flex-1
-                            min-h-0
-                            overflow-y-auto
-                            overflow-x-hidden
-                            overscroll-contain
-                        "
-                    >
-
-                        {loading ? (
-
-                            renderSkeletons(7)
-
-                        ) : messages.length === 0 ? (
-
-                            renderEmptyState()
-
-                        ) : (
-
-                            <div
-                                className="
-                                    divide-y
-                                    divide-gray-100
-                                "
-                            >
-
-                                {messages.map(
-                                    renderMessageCard
-                                )}
-
-                            </div>
-
-                        )}
+                            {pagination.total} messages
+                        </p>
 
                     </div>
 
 
-                    {/* PAGINATION */}
+                    {/* REFRESH */}
 
-                    {!loading &&
-                        messages.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={
+                            handleRefresh
+                        }
+                        disabled={
+                            loading ||
+                            refreshing
+                        }
+                        className="
+                            flex
+                            h-9
+                            w-9
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-lg
+                            border
+                            border-gray-200
+                            text-lg
+                            text-gray-600
+                            transition
+                            hover:bg-gray-50
+                            disabled:cursor-not-allowed
+                            disabled:opacity-50
+                            sm:h-10
+                            sm:w-10
+                        "
+                        title="Refresh inbox"
+                    >
+                        {refreshing
+                            ? "..."
+                            : "↻"}
+                    </button>
 
-                            <div
-                                className="
-                                    shrink-0
-                                    border-t
-                                    border-gray-200
-                                    bg-white
-                                    px-3
-                                    xl:px-4
-                                    py-3
-                                "
-                            >
-
-                                <div
-                                    className="
-                                        flex
-                                        items-center
-                                        justify-between
-                                        gap-2
-                                    "
-                                >
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handlePreviousPage
-                                        }
-                                        disabled={
-                                            page <= 1
-                                        }
-                                        className="
-                                            px-3
-                                            py-2
-                                            rounded-lg
-                                            border
-                                            border-gray-200
-                                            text-xs
-                                            text-gray-700
-                                            hover:bg-gray-50
-                                            disabled:opacity-40
-                                            disabled:cursor-not-allowed
-                                        "
-                                    >
-                                        Previous
-                                    </button>
-
-
-                                    <div
-                                        className="
-                                            flex
-                                            items-center
-                                            gap-1
-                                        "
-                                    >
-
-                                        {getPageNumbers().map(
-                                            (
-                                                pageNumber,
-                                                index
-                                            ) => {
-
-                                                if (
-                                                    pageNumber ===
-                                                    "..."
-                                                ) {
-
-                                                    return (
-
-                                                        <span
-                                                            key={
-                                                                `dots-${index}`
-                                                            }
-                                                            className="
-                                                                px-1
-                                                                text-xs
-                                                                text-gray-400
-                                                            "
-                                                        >
-                                                            ...
-                                                        </span>
-
-                                                    );
-                                                }
-
-
-                                                return (
-
-                                                    <button
-                                                        key={
-                                                            pageNumber
-                                                        }
-                                                        type="button"
-                                                        onClick={() => {
-
-                                                            if (
-                                                                pageNumber !==
-                                                                page
-                                                            ) {
-
-                                                                setSelectedMessage(
-                                                                    null
-                                                                );
-
-                                                                loadInbox(
-                                                                    pageNumber
-                                                                );
-                                                            }
-                                                        }}
-                                                        className={`
-                                                            w-7
-                                                            h-7
-                                                            rounded-md
-                                                            text-xs
-                                                            transition
-                                                            ${
-                                                                pageNumber ===
-                                                                page
-                                                                    ? "bg-blue-600 text-white"
-                                                                    : "text-gray-600 hover:bg-gray-100"
-                                                            }
-                                                        `}
-                                                    >
-                                                        {
-                                                            pageNumber
-                                                        }
-                                                    </button>
-
-                                                );
-                                            }
-                                        )}
-
-                                    </div>
-
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handleNextPage
-                                        }
-                                        disabled={
-                                            page >=
-                                            pagination.pages
-                                        }
-                                        className="
-                                            px-3
-                                            py-2
-                                            rounded-lg
-                                            border
-                                            border-gray-200
-                                            text-xs
-                                            text-gray-700
-                                            hover:bg-gray-50
-                                            disabled:opacity-40
-                                            disabled:cursor-not-allowed
-                                        "
-                                    >
-                                        Next
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                        )}
-
-                </section>
+                </div>
 
 
                 {/* =================================================
-                    RIGHT CONTENT
+                    ERROR
                 ================================================== */}
 
-                <section
+                {error && (
+
+                    <div
+                        className="
+                            mx-4
+                            mt-3
+                            shrink-0
+                            rounded-lg
+                            border
+                            border-red-200
+                            bg-red-50
+                            p-3
+                            text-xs
+                            text-red-600
+                            sm:mx-5
+                            sm:text-sm
+                            lg:mx-6
+                        "
+                    >
+                        {error}
+                    </div>
+
+                )}
+
+
+                {/* =================================================
+                    TOOLBAR
+                ================================================== */}
+
+                {renderSelectionToolbar()}
+
+
+                {/* =================================================
+                    LIST
+                ================================================== */}
+
+                <div
                     className="
-                        min-w-0
                         min-h-0
-                        h-full
-                        overflow-hidden
-                        bg-gray-50
-                        relative
+                        min-w-0
+                        flex-1
+                        overflow-x
+                        overflow-y
                     "
                 >
 
-                    {selectedMessage ? (
+                    {loading ? (
 
-                        <>
+                        renderSkeletons()
 
-                            {messageLoading && (
+                    ) : messages.length === 0 ? (
 
-                                <div
-                                    className="
-                                        absolute
-                                        inset-0
-                                        z-20
-                                        flex
-                                        items-center
-                                        justify-center
-                                        bg-white/70
-                                        backdrop-blur-sm
-                                    "
-                                >
-
-                                    <div
-                                        className="
-                                            w-8
-                                            h-8
-                                            rounded-full
-                                            border-2
-                                            border-blue-600
-                                            border-t-transparent
-                                            animate-spin
-                                        "
-                                    />
-
-                                </div>
-
-                            )}
-
-
-                            <MessageViewer
-                                message={
-                                    selectedMessage
-                                }
-                                folder="inbox"
-                                onClose={
-                                    handleCloseMessage
-                                }
-                                onRefresh={
-                                    handleMessageUpdated
-                                }
-                                onDelete={
-                                    handleDelete
-                                }
-                            />
-
-
-                            {messageError && (
-
-                                <div
-                                    className="
-                                        absolute
-                                        left-4
-                                        right-4
-                                        bottom-4
-                                        z-30
-                                        rounded-lg
-                                        border
-                                        border-red-200
-                                        bg-red-50
-                                        px-4
-                                        py-3
-                                        text-sm
-                                        text-red-700
-                                        shadow-lg
-                                    "
-                                >
-                                    {messageError}
-                                </div>
-
-                            )}
-
-                        </>
+                        renderEmptyState()
 
                     ) : (
 
-                        renderDefaultPanel()
+                        <div
+                            className="
+                                divide-y
+                                divide-gray-100
+                            "
+                        >
+
+                            {messages.map(
+                                renderMessageCard
+                            )}
+
+                        </div>
 
                     )}
 
-                </section>
+                </div>
+
+
+                {/* =================================================
+                    PAGINATION
+                ================================================== */}
+
+                {renderPagination()}
 
             </div>
 
+        );
+
+    };
+
+
+    // ============================================================
+    // IMPORTANT MAIN RETURN
+    //
+    // NEVER use:
+    //
+    // lg:grid
+    // grid-cols-[...]
+    //
+    // here.
+    //
+    // Only one view is mounted at a time.
+    // ============================================================
+
+    return (
+
+        <div
+            className="
+                h-full
+                min-h-0
+                w-full
+                min-w-10
+                overflow-hidden
+                bg-white
+            "
+        >
+
+            {selectedMessage
+                ? renderMessageView()
+                : renderInbox()}
+
         </div>
+
     );
+
 };
 
 

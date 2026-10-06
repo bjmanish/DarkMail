@@ -236,10 +236,10 @@ export const AuthProvider = ({
                 });
 
 
-            console.log(
-                "LOGIN RESPONSE:",
-                response
-            );
+            // console.log(
+            //     "LOGIN RESPONSE:",
+            //     response
+            // );
 
 
             if (

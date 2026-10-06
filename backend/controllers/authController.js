@@ -123,6 +123,12 @@ const login = async (req, res) => {
 
                 email:
                     employee.email,
+                
+                designation: 
+                    employee.designation,
+
+                department: 
+                    employee.department,
 
                 role:
                     employee.role,

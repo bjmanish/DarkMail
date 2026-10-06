@@ -1,39 +1,102 @@
+import React from "react";
 import {
-    useSearchParams
+    useSearchParams,
 } from "react-router-dom";
+
+import {
+    Inbox,
+    Sent,
+    Drafts,
+    Trash,
+} from "../../pages/user/MailFolders";
+
 
 const MailUser = () => {
 
-    const [searchParams] = useSearchParams();
+    const [
+        searchParams,
+        setSearchParams
+    ] = useSearchParams();
+
 
     const folder =
-        searchParams
-            .get("Folder")
-            ?.toLowerCase() || "inbox";
+        (
+            searchParams.get(
+                "Folder"
+            ) ||
+            "inbox"
+        ).toLowerCase();
 
-    console.log("Current folder:", folder);
 
-    return (
-        <div>
+    /* =====================================================
+       CHANGE FOLDER
+    ===================================================== */
 
-            {folder === "inbox" && (
-                <Inbox />
-            )}
+    const changeFolder = (
+        nextFolder
+    ) => {
 
-            {folder === "sent" && (
-                <Sent />
-            )}
+        setSearchParams({
+            Folder: nextFolder,
+        });
 
-            {folder === "drafts" && (
-                <Drafts />
-            )}
+    };
 
-            {folder === "trash" && (
-                <Trash />
-            )}
 
-        </div>
-    );
+    /* =====================================================
+       RENDER FOLDER
+    ===================================================== */
+
+    switch (folder) {
+
+        case "sent":
+
+            return (
+                <Sent
+                    onChangeFolder={
+                        changeFolder
+                    }
+                />
+            );
+
+
+        case "draft":
+
+            return (
+                <Drafts
+                    onChangeFolder={
+                        changeFolder
+                    }
+                />
+            );
+
+
+        case "trash":
+
+            return (
+                <Trash
+                    onChangeFolder={
+                        changeFolder
+                    }
+                />
+            );
+
+
+        case "inbox":
+
+        default:
+
+            return (
+                <Inbox
+                    onChangeFolder={
+                        changeFolder
+                    }
+                />
+            );
+
+    }
+
 };
+
 
 export default MailUser;

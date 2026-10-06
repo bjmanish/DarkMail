@@ -19,7 +19,6 @@ const startServer = async () => {
             console.log(`Server: ${process.env.VITE_API_URL}`);
             console.log(`API:    ${process.env.VITE_API_URL}/api`);
             console.log("--------------------------------");
-
         });
 
     } catch (error) {

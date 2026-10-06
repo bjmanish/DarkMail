@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate} from "react-router-dom";
 
 import {
     getEmployeesApi
@@ -10,6 +10,8 @@ import {
 } from "../../context/AuthContext";
 
 const AdminDashboard = () => {
+    const navigate = useNavigate();
+
     const {
         user,
         logout
@@ -20,6 +22,8 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     const [error, setError] = useState("");
+
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     const loadEmployees = useCallback(async () => {
 
@@ -143,6 +147,18 @@ const AdminDashboard = () => {
         );
     };
 
+    const handleLogout = () => {
+
+        logout();
+
+        navigate(
+            "/login",
+            {
+                replace: true
+            }
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gray-100">
 
@@ -190,13 +206,145 @@ const AdminDashboard = () => {
                         </div>
 
                         <button
-                            onClick={logout}
+                            type="button"
+                            onClick={handleLogout}
                             className="hidden rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-red-50 hover:text-red-600 sm:block"
                         >
                             Logout
                         </button>
 
                     </div>
+
+                    {/* ==========================================================
+                LOGOUT MODAL
+            ========================================================== */}
+
+            {showLogoutModal && (
+
+                <div
+                    className="
+                        fixed
+                        inset-0
+                        z-[100]
+                        flex
+                        items-center
+                        justify-center
+                        bg-black/50
+                        p-4
+                    "
+                >
+
+                    <div
+                        className="
+                            w-full
+                            max-w-sm
+                            rounded-2xl
+                            bg-white
+                            p-6
+                            shadow-2xl
+                        "
+                    >
+
+                        <div
+                            className="
+                                mb-4
+                                flex
+                                h-12
+                                w-12
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-red-100
+                                text-xl
+                            "
+                        >
+                            🚪
+                        </div>
+
+
+                        <h2
+                            className="
+                                text-lg
+                                font-semibold
+                                text-gray-900
+                            "
+                        >
+                            Sign out?
+                        </h2>
+
+
+                        <p
+                            className="
+                                mt-2
+                                text-sm
+                                leading-6
+                                text-gray-500
+                            "
+                        >
+                            Are you sure you want to sign out
+                            of DarkMail?
+                        </p>
+
+
+                        <div
+                            className="
+                                mt-6
+                                flex
+                                flex-col-reverse
+                                gap-2
+                                sm:flex-row
+                                sm:justify-end
+                            "
+                        >
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowLogoutModal(
+                                        false
+                                    )
+                                }
+                                className="
+                                    rounded-lg
+                                    border
+                                    border-gray-300
+                                    px-4
+                                    py-2.5
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                    transition
+                                    hover:bg-gray-50
+                                "
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowLogoutModal(true)}
+                                className="
+                                    rounded-lg
+                                    bg-red-600
+                                    px-4
+                                    py-2.5
+                                    text-sm
+                                    font-semibold
+                                    text-white
+                                    transition
+                                    hover:bg-red-700
+                                "
+                            >
+                                Sign Out
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            )}
 
                 </div>
 
@@ -645,7 +793,8 @@ const AdminDashboard = () => {
                 <div className="py-6 text-center">
 
                     <p className="text-xs text-gray-400">
-                        DarkMail Internal Communication System
+                        DarkMail Internal Communication System 
+                        v{import.meta.env.VITE_PACKAGE_VERSION }  {import.meta.env.VITE_PACKAGE_YEAR }
                     </p>
 
                 </div>

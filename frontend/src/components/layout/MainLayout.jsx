@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, {
+    useEffect,
+    useState,
+} from "react";
 
 import {
     Link,
@@ -11,7 +14,6 @@ import {
 import {
     Menu,
     X,
-    Mail,
     Inbox as InboxIcon,
     Send,
     FileText,
@@ -33,6 +35,9 @@ import { getUnreadCountApi } from "../../api/messageApi";
 
 import ComposeModal from "../mail/ComposeModal";
 
+import Hero from "../../assets/Hero.png";
+
+
 const MainLayout = () => {
 
     const {
@@ -40,21 +45,28 @@ const MainLayout = () => {
         logout,
     } = useAuth();
 
-    const [searchParams] = useSearchParams();
+    const [searchParams] =
+        useSearchParams();
 
-    const location = useLocation();
-    const navigate = useNavigate();
+    const location =
+        useLocation();
+
+    const navigate =
+        useNavigate();
+
 
     /* =========================================================
        STATE
     ========================================================== */
 
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] =
+        useState(false);
 
-    const [profileOpen, setProfileOpen] = useState(false);
+    const [profileOpen, setProfileOpen] =
+        useState(false);
 
-
-    const [composeOpen, setComposeOpen] = useState(false);
+    const [composeOpen, setComposeOpen] =
+        useState(false);
 
     const [notificationOpen, setNotificationOpen] =
         useState(false);
@@ -77,15 +89,10 @@ const MainLayout = () => {
     const [currentTime, setCurrentTime] =
         useState(new Date());
 
-    /*
-     * IMPORTANT
-     * Read Folder from:
-     *
-     * /user/mail?Folder=inbox
-     * /user/mail?Folder=sent
-     * /user/mail?Folder=drafts
-     * /user/mail?Folder=trash
-     */
+
+    /* =========================================================
+       FOLDER
+    ========================================================== */
 
     const folder =
         (
@@ -94,11 +101,11 @@ const MainLayout = () => {
             "inbox"
         ).toLowerCase();
 
-    /*
-     * Keep the current sessionId available for all mailbox links.
-     * The URL remains the source for navigation, while localStorage
-     * keeps it when the user changes Folder.
-     */
+
+    /* =========================================================
+       SESSION ID
+    ========================================================== */
+
     useEffect(() => {
 
         const urlSessionId =
@@ -107,7 +114,9 @@ const MainLayout = () => {
             searchParams.get("session_id") ||
             "";
 
-        if (urlSessionId.trim()) {
+        if (
+            urlSessionId.trim()
+        ) {
 
             try {
 
@@ -122,10 +131,13 @@ const MainLayout = () => {
                     "Unable to store sessionId:",
                     error
                 );
+
             }
+
         }
 
     }, [searchParams]);
+
 
     /* =========================================================
        USER DATA
@@ -140,7 +152,9 @@ const MainLayout = () => {
             user?.username ||
             "User"
         );
+
     };
+
 
     const getUserEmail = () => {
 
@@ -149,7 +163,9 @@ const MainLayout = () => {
             user?.emailAddress ||
             ""
         );
+
     };
+
 
     const getUserRole = () => {
 
@@ -158,11 +174,14 @@ const MainLayout = () => {
             user?.roleName ||
             "USER"
         );
+
     };
+
 
     const getInitials = () => {
 
-        const name = getUserName();
+        const name =
+            getUserName();
 
         if (!name) {
             return "U";
@@ -171,84 +190,104 @@ const MainLayout = () => {
         return name
             .split(" ")
             .filter(Boolean)
-            .map((word) =>
-                word.charAt(0)
+            .map(
+                (word) =>
+                    word.charAt(0)
             )
             .join("")
             .substring(0, 2)
             .toUpperCase();
+
     };
+
 
     /* =========================================================
        UNREAD COUNT
     ========================================================== */
 
-    const loadUnreadCount = async () => {
+    const loadUnreadCount =
+        async () => {
 
-        try {
+            try {
 
-            const response =
-                await getUnreadCountApi();
+                const response =
+                    await getUnreadCountApi();
 
-            if (response?.success) {
+                if (
+                    response?.success
+                ) {
 
-                const count = Number(
-                    response?.count ??
-                    response?.unreadCount ??
-                    response?.data?.count ??
-                    response?.data?.unreadCount ??
-                    0
+                    const count =
+                        Number(
+                            response?.count ??
+                            response?.unreadCount ??
+                            response?.data?.count ??
+                            response?.data?.unreadCount ??
+                            0
+                        );
+
+                    setUnreadCount(
+                        Number.isFinite(count)
+                            ? count
+                            : 0
+                    );
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Failed to load unread count:",
+                    error
                 );
 
-                setUnreadCount(
-                    Number.isFinite(count)
-                        ? count
-                        : 0
-                );
             }
 
-        } catch (error) {
+        };
 
-            console.error(
-                "Failed to load unread count:",
-                error
-            );
-        }
-    };
 
-    const refreshUnreadCount = async () => {
+    const refreshUnreadCount =
+        async () => {
 
-        try {
+            try {
 
-            setRefreshing(true);
+                setRefreshing(true);
 
-            await loadUnreadCount();
+                await loadUnreadCount();
 
-        } finally {
+            } finally {
 
-            setTimeout(() => {
+                setTimeout(
+                    () => {
+                        setRefreshing(false);
+                    },
+                    500
+                );
 
-                setRefreshing(false);
+            }
 
-            }, 500);
-        }
-    };
+        };
+
 
     useEffect(() => {
 
         loadUnreadCount();
 
         const interval =
-            setInterval(() => {
-
-                loadUnreadCount();
-
-            }, 30000);
+            setInterval(
+                () => {
+                    loadUnreadCount();
+                },
+                30000
+            );
 
         return () =>
-            clearInterval(interval);
+            clearInterval(
+                interval
+            );
 
     }, []);
+
 
     /* =========================================================
        CLOCK
@@ -257,18 +296,24 @@ const MainLayout = () => {
     useEffect(() => {
 
         const timer =
-            setInterval(() => {
+            setInterval(
+                () => {
 
-                setCurrentTime(
-                    new Date()
-                );
+                    setCurrentTime(
+                        new Date()
+                    );
 
-            }, 1000);
+                },
+                1000
+            );
 
         return () =>
-            clearInterval(timer);
+            clearInterval(
+                timer
+            );
 
     }, []);
+
 
     /* =========================================================
        CLOSE MOBILE MENUS
@@ -282,8 +327,9 @@ const MainLayout = () => {
 
     }, [
         location.pathname,
-        location.search
+        location.search,
     ]);
+
 
     /* =========================================================
        KEYBOARD SHORTCUTS
@@ -291,48 +337,52 @@ const MainLayout = () => {
 
     useEffect(() => {
 
-        const handleKeyDown = (event) => {
+        const handleKeyDown =
+            (event) => {
 
-            /*
-             * CTRL + K
-             * Search
-             */
+                if (
+                    (
+                        event.ctrlKey ||
+                        event.metaKey
+                    ) &&
+                    event.key.toLowerCase() ===
+                        "k"
+                ) {
 
-            if (
-                (event.ctrlKey ||
-                    event.metaKey) &&
-                event.key.toLowerCase() === "k"
-            ) {
+                    event.preventDefault();
 
-                event.preventDefault();
+                    setSearchOpen(true);
 
-                setSearchOpen(true);
+                    return;
 
-                return;
-            }
+                }
 
-            /*
-             * C
-             * Compose
-             */
 
-            if (
-                event.key.toLowerCase() === "c" &&
-                !event.target.matches(
-                    "input, textarea, select"
-                )
-            ) {
+                if (
+                    event.key.toLowerCase() ===
+                        "c" &&
+                    !event.target.matches(
+                        "input, textarea, select"
+                    )
+                ) {
 
-                setSidebarOpen(false);
-                setProfileOpen(false);
-                navigate("/user/mail/compose");
-            }
-        };
+                    setSidebarOpen(false);
+                    setProfileOpen(false);
+
+                    navigate(
+                        "/user/mail/compose"
+                    );
+
+                }
+
+            };
+
 
         window.addEventListener(
             "keydown",
             handleKeyDown
         );
+
 
         return () => {
 
@@ -340,23 +390,20 @@ const MainLayout = () => {
                 "keydown",
                 handleKeyDown
             );
+
         };
 
     }, [navigate]);
 
+
     /* =========================================================
-       MAIL SESSION / URL
+       GET SESSION ID
     ========================================================== */
 
     const getSessionId = () => {
 
         try {
-            /*
-             * Priority:
-             * 1. sessionId already present in the current URL
-             * 2. darkmail_session_id saved after login
-             * 3. sessionId saved after login
-             */
+
             const urlSessionId =
                 searchParams.get("sessionId") ||
                 searchParams.get("sessionID") ||
@@ -364,8 +411,12 @@ const MainLayout = () => {
                 "";
 
             const storedSessionId =
-                localStorage.getItem("darkmail_session_id") ||
-                localStorage.getItem("sessionId") ||
+                localStorage.getItem(
+                    "darkmail_session_id"
+                ) ||
+                localStorage.getItem(
+                    "sessionId"
+                ) ||
                 "";
 
             return (
@@ -382,28 +433,68 @@ const MainLayout = () => {
             );
 
             return "";
+
         }
+
     };
 
-    const buildMailUrl = (mailFolder = "inbox", extraParams = {}) => {
 
-        const params = new URLSearchParams();
-        params.set("Folder", mailFolder);
+    /* =========================================================
+       BUILD MAIL URL
+    ========================================================== */
 
-        const sessionId = getSessionId();
+    const buildMailUrl = (
+        mailFolder = "inbox",
+        extraParams = {}
+    ) => {
+
+        const params =
+            new URLSearchParams();
+
+        params.set(
+            "Folder",
+            mailFolder
+        );
+
+        const sessionId =
+            getSessionId();
 
         if (sessionId) {
-            params.set("sessionId", sessionId);
+
+            params.set(
+                "sessionId",
+                sessionId
+            );
+
         }
 
-        Object.entries(extraParams).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && String(value).trim() !== "") {
-                params.set(key, String(value));
-            }
-        });
+        Object.entries(
+            extraParams
+        ).forEach(
+            ([key, value]) => {
 
-        return `/user/mail?${params.toString()}`;
+                if (
+                    value !== undefined &&
+                    value !== null &&
+                    String(value).trim() !== ""
+                ) {
+
+                    params.set(
+                        key,
+                        String(value)
+                    );
+
+                }
+
+            }
+        );
+
+        return (
+            `/user/mail?${params.toString()}`
+        );
+
     };
+
 
     /* =========================================================
        NAVIGATION
@@ -413,7 +504,9 @@ const MainLayout = () => {
 
         {
             name: "Inbox",
-            path: buildMailUrl("inbox"),
+            path: buildMailUrl(
+                "inbox"
+            ),
             folder: "inbox",
             icon: InboxIcon,
             badge: unreadCount,
@@ -421,43 +514,60 @@ const MainLayout = () => {
 
         {
             name: "Sent",
-            path: buildMailUrl("sent"),
+            path: buildMailUrl(
+                "sent"
+            ),
             folder: "sent",
             icon: Send,
         },
 
         {
             name: "Drafts",
-            path: buildMailUrl("drafts"),
+            path: buildMailUrl(
+                "drafts"
+            ),
             folder: "drafts",
             icon: FileText,
         },
 
         {
             name: "Trash",
-            path: buildMailUrl("trash"),
+            path: buildMailUrl(
+                "trash"
+            ),
             folder: "trash",
             icon: Trash2,
         },
 
     ];
 
+
     /* =========================================================
-       ACTIVE MAIL FOLDER
+       ACTIVE FOLDER
     ========================================================== */
 
-    const isMailFolderActive = (itemFolder) => {
+    const isMailFolderActive =
+        (itemFolder) => {
 
-        return (
-            location.pathname === "/user/mail" &&
-            folder === itemFolder
-        );
-    };
+            return (
+                location.pathname ===
+                    "/user/mail" &&
+                folder === itemFolder
+            );
 
-    const isPathActive = (path) => {
+        };
 
-        return location.pathname === path;
-    };
+
+    const isPathActive =
+        (path) => {
+
+            return (
+                location.pathname ===
+                path
+            );
+
+        };
+
 
     /* =========================================================
        LOGOUT
@@ -469,32 +579,46 @@ const MainLayout = () => {
         setProfileOpen(false);
 
         logout();
+        navigate(
+            "/login",
+            {
+                replace: true
+            }
+        );
+
     };
+
 
     /* =========================================================
        SEARCH
     ========================================================== */
 
-    const handleSearchSubmit = (event) => {
+    const handleSearchSubmit =
+        (event) => {
 
-        event.preventDefault();
+            event.preventDefault();
 
-        const query =
-            searchText.trim();
+            const query =
+                searchText.trim();
 
-        if (!query) {
-            return;
-        }
+            if (!query) {
+                return;
+            }
 
-        navigate(
-            buildMailUrl("inbox", {
-                search: query,
-            })
-        );
+            navigate(
+                buildMailUrl(
+                    "inbox",
+                    {
+                        search: query,
+                    }
+                )
+            );
 
-        setSearchOpen(false);
-        setSearchText("");
-    };
+            setSearchOpen(false);
+            setSearchText("");
+
+        };
+
 
     /* =========================================================
        TIME
@@ -510,14 +634,17 @@ const MainLayout = () => {
             }
         );
 
+
     /* =========================================================
        PAGE TITLE
     ========================================================== */
 
-    const pageTitle = getPageTitle(
-        location.pathname,
-        folder
-    );
+    const pageTitle =
+        getPageTitle(
+            location.pathname,
+            folder
+        );
+
 
     /* =========================================================
        RENDER
@@ -525,18 +652,29 @@ const MainLayout = () => {
 
     return (
 
+        /*
+         * IMPORTANT
+         * ------------------------------------------------------
+         * The complete application owns the viewport height.
+         * We don't allow the browser/page itself to create an
+         * unwanted second scrollbar.
+         */
         <div
             className="
-                min-h-screen
-                overflow-x-hidden
+                flex
+                h-dvh
+                min-h-0
+                w-full
+                flex-col
+                overflow-hidden
                 bg-gray-100
                 text-gray-900
             "
         >
 
-            {/* =====================================================
+            {/* =================================================
                 MOBILE OVERLAY
-            ====================================================== */}
+            ================================================== */}
 
             {sidebarOpen && (
 
@@ -553,11 +691,13 @@ const MainLayout = () => {
                         setSidebarOpen(false)
                     }
                 />
+
             )}
 
-            {/* =====================================================
+
+            {/* =================================================
                 SIDEBAR
-            ====================================================== */}
+            ================================================== */}
 
             <aside
                 className={`
@@ -566,7 +706,7 @@ const MainLayout = () => {
                     top-0
                     z-50
                     flex
-                    h-screen
+                    h-dvh
                     w-[280px]
                     max-w-[85vw]
                     flex-col
@@ -623,29 +763,74 @@ const MainLayout = () => {
                                 shrink-0
                                 items-center
                                 justify-center
+                                overflow-hidden
                                 rounded-xl
                                 bg-indigo-600
-                                text-white
                                 shadow-md
                             "
                         >
-                            {/* <Mail size={23} /> */}
-                            <img src="../../src/assets/Hero.png" size="25"/>
+
+                            <img
+                                src={Hero}
+                                alt="DarkMail"
+                                className="
+                                    h-9
+                                    w-9
+                                    object-contain
+                                "
+                            />
+
                         </div>
 
-                        <div className="min-w-0">
 
-                            <h1
+                        <div
+                            className="
+                                min-w-0
+                            "
+                        >
+
+                            <div
                                 className="
-                                    truncate
-                                    text-lg
-                                    font-bold
-                                    tracking-tight
-                                    text-gray-900
+                                    flex
+                                    items-center
+                                    gap-2
                                 "
                             >
-                                DarkMail
-                            </h1>
+
+                                <h1
+                                    className="
+                                        truncate
+                                        text-lg
+                                        font-bold
+                                        tracking-tight
+                                        text-gray-900
+                                    "
+                                >
+                                    DarkMail
+                                </h1>
+
+                                <span
+                                    className="
+                                        rounded-md
+                                        bg-indigo-50
+                                        px-1.5
+                                        py-0.5
+                                        text-[9px]
+                                        font-semibold
+                                        tracking-wide
+                                        text-indigo-600
+                                    "
+                                >
+                                    v
+                                    {
+                                        import.meta.env
+                                            .VITE_PACKAGE_VERSION ||
+                                        "1.0.1"
+                                    }
+                                </span>
+
+                            </div>
+
 
                             <p
                                 className="
@@ -661,7 +846,8 @@ const MainLayout = () => {
 
                     </h2>
 
-                    {/* Mobile Close */}
+
+                    {/* MOBILE CLOSE */}
 
                     <button
                         type="button"
@@ -682,17 +868,26 @@ const MainLayout = () => {
 
                 </div>
 
+
                 {/* =================================================
                     COMPOSE
                 ================================================== */}
 
-                <div className="px-4 pt-4">
+                <div
+                    className="
+                        shrink-0
+                        px-4
+                        pt-4
+                    "
+                >
 
                     <button
                         type="button"
                         onClick={() => {
+
                             setSidebarOpen(false);
                             setComposeOpen(true);
+
                         }}
                         className="
                             flex
@@ -714,14 +909,17 @@ const MainLayout = () => {
                             active:scale-[0.98]
                         "
                     >
+
                         <PenSquare size={18} />
 
                         <span>
                             Compose
                         </span>
+
                     </button>
 
                 </div>
+
 
                 {/* =================================================
                     NAVIGATION
@@ -730,6 +928,7 @@ const MainLayout = () => {
                 <nav
                     className="
                         mt-5
+                        min-h-0
                         flex-1
                         overflow-y-auto
                         px-3
@@ -751,86 +950,114 @@ const MainLayout = () => {
                         Mail
                     </p>
 
-                    <div className="space-y-1">
 
-                        {navigation.map((item) => {
+                    <div
+                        className="
+                            space-y-1
+                        "
+                    >
 
-                            const Icon = item.icon;
+                        {navigation.map(
+                            (item) => {
 
-                            const active =
-                                isMailFolderActive(item.folder);
+                                const Icon =
+                                    item.icon;
 
-                            return (
+                                const active =
+                                    isMailFolderActive(
+                                        item.folder
+                                    );
 
-                                <Link
-                                    key={item.name}
-                                    to={item.path}
-                                    onClick={() =>
-                                        setSidebarOpen(false)
-                                    }
-                                    className={`
-                                        flex
-                                        items-center
-                                        justify-between
-                                        rounded-xl
-                                        px-4
-                                        py-3
-                                        transition
+                                return (
 
-                                        ${
-                                            active
-                                                ? "bg-indigo-50 text-indigo-600"
-                                                : "text-gray-600 hover:bg-gray-100"
+                                    <Link
+                                        key={
+                                            item.name
                                         }
-                                    `}
-                                >
-
-                                    <div
-                                        className="
+                                        to={
+                                            item.path
+                                        }
+                                        onClick={() =>
+                                            setSidebarOpen(
+                                                false
+                                            )
+                                        }
+                                        className={`
                                             flex
                                             items-center
-                                            gap-3
-                                        "
+                                            justify-between
+                                            rounded-xl
+                                            px-4
+                                            py-3
+                                            transition
+
+                                            ${
+                                                active
+                                                    ? "bg-indigo-50 text-indigo-600"
+                                                    : "text-gray-600 hover:bg-gray-100"
+                                            }
+                                        `}
                                     >
 
-                                        <Icon size={19} />
-
-                                        <span>
-                                            {item.name}
-                                        </span>
-
-                                    </div>
-
-
-                                    {item.badge > 0 && (
-
-                                        <span
+                                        <div
                                             className="
-                                                rounded-full
-                                                bg-indigo-600
-                                                px-2
-                                                py-0.5
-                                                text-xs
-                                                font-semibold
-                                                text-white
+                                                flex
+                                                items-center
+                                                gap-3
                                             "
                                         >
-                                            {item.badge}
-                                        </span>
 
-                                    )}
+                                            <Icon
+                                                size={19}
+                                            />
 
-                                </Link>
-                            );
-                        })}
+                                            <span>
+                                                {
+                                                    item.name
+                                                }
+                                            </span>
+
+                                        </div>
+
+
+                                        {item.badge >
+                                            0 && (
+
+                                            <span
+                                                className="
+                                                    rounded-full
+                                                    bg-indigo-600
+                                                    px-2
+                                                    py-0.5
+                                                    text-xs
+                                                    font-semibold
+                                                    text-white
+                                                "
+                                            >
+                                                {
+                                                    item.badge
+                                                }
+                                            </span>
+
+                                        )}
+
+                                    </Link>
+
+                                );
+
+                            }
+                        )}
 
                     </div>
 
-                    {/* =================================================
-                        ACCOUNT
-                    ================================================== */}
 
-                    <div className="mt-7">
+                    {/* ACCOUNT */}
+
+                    <div
+                        className="
+                            mt-7
+                        "
+                    >
 
                         <p
                             className="
@@ -846,10 +1073,13 @@ const MainLayout = () => {
                             Account
                         </p>
 
+
                         <Link
                             to="/user/profile"
                             onClick={() =>
-                                setSidebarOpen(false)
+                                setSidebarOpen(
+                                    false
+                                )
                             }
                             className={`
                                 flex
@@ -878,10 +1108,13 @@ const MainLayout = () => {
 
                         </Link>
 
+
                         <Link
                             to="/user/settings"
                             onClick={() =>
-                                setSidebarOpen(false)
+                                setSidebarOpen(
+                                    false
+                                )
                             }
                             className={`
                                 mt-1
@@ -914,6 +1147,7 @@ const MainLayout = () => {
                     </div>
 
                 </nav>
+
 
                 {/* =================================================
                     SIDEBAR USER
@@ -957,7 +1191,13 @@ const MainLayout = () => {
                             {getInitials()}
                         </div>
 
-                        <div className="min-w-0 flex-1">
+
+                        <div
+                            className="
+                                min-w-0
+                                flex-1
+                            "
+                        >
 
                             <p
                                 className="
@@ -988,13 +1228,19 @@ const MainLayout = () => {
 
             </aside>
 
+
             {/* =====================================================
                 MAIN AREA
             ====================================================== */}
 
             <div
                 className="
-                    min-h-screen
+                    flex
+                    min-h-0
+                    min-w-0
+                    flex-1
+                    flex-col
+                    overflow-hidden
                     lg:pl-[280px]
                 "
             >
@@ -1010,17 +1256,16 @@ const MainLayout = () => {
                         z-30
                         flex
                         min-h-[76px]
+                        shrink-0
                         items-center
                         justify-between
                         border-b
                         border-gray-200
-                        bg-white/100
+                        bg-white
                         px-3
                         shadow-sm
-                        backdrop-blur
                         sm:px-5
                         lg:px-6
-                        
                     "
                 >
 
@@ -1039,7 +1284,9 @@ const MainLayout = () => {
                         <button
                             type="button"
                             onClick={() =>
-                                setSidebarOpen(true)
+                                setSidebarOpen(
+                                    true
+                                )
                             }
                             className="
                                 shrink-0
@@ -1054,7 +1301,12 @@ const MainLayout = () => {
                             <Menu size={22} />
                         </button>
 
-                        <div className="min-w-0">
+
+                        <div
+                            className="
+                                min-w-0
+                            "
+                        >
 
                             <h2
                                 className="
@@ -1076,12 +1328,14 @@ const MainLayout = () => {
                                     sm:block
                                 "
                             >
-                                Manage your messages and communication
+                                Manage your messages
+                                and communication
                             </p>
 
                         </div>
 
                     </div>
+
 
                     {/* RIGHT */}
 
@@ -1116,12 +1370,15 @@ const MainLayout = () => {
 
                         </div>
 
+
                         {/* SEARCH */}
 
                         <button
                             type="button"
                             onClick={() =>
-                                setSearchOpen(true)
+                                setSearchOpen(
+                                    true
+                                )
                             }
                             title="Search"
                             className="
@@ -1135,6 +1392,7 @@ const MainLayout = () => {
                         >
                             <Search size={19} />
                         </button>
+
 
                         {/* REFRESH */}
 
@@ -1167,15 +1425,21 @@ const MainLayout = () => {
 
                         </button>
 
+
                         {/* NOTIFICATION */}
 
-                        <div className="relative">
+                        <div
+                            className="
+                                relative
+                            "
+                        >
 
                             <button
                                 type="button"
                                 onClick={() =>
                                     setNotificationOpen(
-                                        (prev) => !prev
+                                        (prev) =>
+                                            !prev
                                     )
                                 }
                                 title="Notifications"
@@ -1191,7 +1455,8 @@ const MainLayout = () => {
 
                                 <Bell size={19} />
 
-                                {unreadCount > 0 && (
+                                {unreadCount >
+                                    0 && (
 
                                     <span
                                         className="
@@ -1227,6 +1492,7 @@ const MainLayout = () => {
                                             )
                                         }
                                     />
+
 
                                     <div
                                         className="
@@ -1283,16 +1549,24 @@ const MainLayout = () => {
                                                         text-indigo-600
                                                     "
                                                 >
-                                                    {unreadCount}
+                                                    {
+                                                        unreadCount
+                                                    }
                                                 </span>
 
                                             </div>
 
                                         </div>
 
-                                        <div className="p-4">
 
-                                            {unreadCount > 0 ? (
+                                        <div
+                                            className="
+                                                p-4
+                                            "
+                                        >
+
+                                            {unreadCount >
+                                                0 ? (
 
                                                 <button
                                                     type="button"
@@ -1302,7 +1576,12 @@ const MainLayout = () => {
                                                             false
                                                         );
 
-                                                        navigate(buildMailUrl("inbox"));
+                                                        navigate(
+                                                            buildMailUrl(
+                                                                "inbox"
+                                                            )
+                                                        );
+
                                                     }}
                                                     className="
                                                         flex
@@ -1313,17 +1592,31 @@ const MainLayout = () => {
                                                         bg-indigo-50
                                                         p-3
                                                         text-left
+                                                        transition
+                                                        hover:bg-indigo-100
                                                     "
                                                 >
 
-                                                    <InboxIcon
-                                                        size={19}
+                                                    <div
                                                         className="
-                                                            mt-0.5
+                                                            flex
+                                                            h-9
+                                                            w-9
                                                             shrink-0
-                                                            text-indigo-600
+                                                            items-center
+                                                            justify-center
+                                                            rounded-full
+                                                            bg-indigo-600
+                                                            text-white
                                                         "
-                                                    />
+                                                    >
+                                                        <Bell
+                                                            size={
+                                                                17
+                                                            }
+                                                        />
+                                                    </div>
+
 
                                                     <div>
 
@@ -1334,7 +1627,7 @@ const MainLayout = () => {
                                                                 text-gray-900
                                                             "
                                                         >
-                                                            You have unread
+                                                            New
                                                             messages
                                                         </p>
 
@@ -1345,8 +1638,19 @@ const MainLayout = () => {
                                                                 text-gray-500
                                                             "
                                                         >
-                                                            Open your inbox
-                                                            to read them.
+                                                            You
+                                                            have{" "}
+                                                            {
+                                                                unreadCount
+                                                            }{" "}
+                                                            unread
+                                                            message
+                                                            {
+                                                                unreadCount ===
+                                                                1
+                                                                    ? ""
+                                                                    : "s"
+                                                            }.
                                                         </p>
 
                                                     </div>
@@ -1362,45 +1666,25 @@ const MainLayout = () => {
                                                     "
                                                 >
 
-                                                    <div
+                                                    <Bell
+                                                        size={
+                                                            24
+                                                        }
                                                         className="
                                                             mx-auto
-                                                            mb-2
-                                                            flex
-                                                            h-10
-                                                            w-10
-                                                            items-center
-                                                            justify-center
-                                                            rounded-full
-                                                            bg-gray-100
+                                                            text-gray-300
                                                         "
-                                                    >
-                                                        <Bell
-                                                            size={18}
-                                                            className="
-                                                                text-gray-400
-                                                            "
-                                                        />
-                                                    </div>
+                                                    />
 
                                                     <p
                                                         className="
+                                                            mt-2
                                                             text-sm
-                                                            font-medium
-                                                            text-gray-700
-                                                        "
-                                                    >
-                                                        All caught up
-                                                    </p>
-
-                                                    <p
-                                                        className="
-                                                            mt-1
-                                                            text-xs
                                                             text-gray-500
                                                         "
                                                     >
-                                                        No new notifications.
+                                                        No new
+                                                        notifications
                                                     </p>
 
                                                 </div>
@@ -1412,19 +1696,26 @@ const MainLayout = () => {
                                     </div>
 
                                 </>
+
                             )}
 
                         </div>
 
+
                         {/* PROFILE */}
 
-                        <div className="relative">
+                        <div
+                            className="
+                                relative
+                            "
+                        >
 
                             <button
                                 type="button"
                                 onClick={() =>
                                     setProfileOpen(
-                                        (prev) => !prev
+                                        (prev) =>
+                                            !prev
                                     )
                                 }
                                 className="
@@ -1432,7 +1723,7 @@ const MainLayout = () => {
                                     items-center
                                     gap-2
                                     rounded-xl
-                                    p-1.5
+                                    p-1
                                     transition
                                     hover:bg-gray-100
                                 "
@@ -1444,6 +1735,7 @@ const MainLayout = () => {
                                         flex
                                         h-9
                                         w-9
+                                        shrink-0
                                         items-center
                                         justify-center
                                         rounded-full
@@ -1473,6 +1765,7 @@ const MainLayout = () => {
                                     />
 
                                 </div>
+
 
                                 <div
                                     className="
@@ -1507,6 +1800,7 @@ const MainLayout = () => {
 
                                 </div>
 
+
                                 <ChevronDown
                                     size={16}
                                     className={`
@@ -1524,6 +1818,7 @@ const MainLayout = () => {
                                 />
 
                             </button>
+
 
                             {/* PROFILE DROPDOWN */}
 
@@ -1543,6 +1838,7 @@ const MainLayout = () => {
                                             )
                                         }
                                     />
+
 
                                     <div
                                         className="
@@ -1591,10 +1887,17 @@ const MainLayout = () => {
                                                         text-white
                                                     "
                                                 >
-                                                    {getInitials()}
+                                                    {
+                                                        getInitials()
+                                                    }
                                                 </div>
 
-                                                <div className="min-w-0">
+
+                                                <div
+                                                    className="
+                                                        min-w-0
+                                                    "
+                                                >
 
                                                     <p
                                                         className="
@@ -1604,7 +1907,9 @@ const MainLayout = () => {
                                                             text-gray-900
                                                         "
                                                     >
-                                                        {getUserName()}
+                                                        {
+                                                            getUserName()
+                                                        }
                                                     </p>
 
                                                     <p
@@ -1614,7 +1919,9 @@ const MainLayout = () => {
                                                             text-gray-500
                                                         "
                                                     >
-                                                        {getUserEmail()}
+                                                        {
+                                                            getUserEmail()
+                                                        }
                                                     </p>
 
                                                 </div>
@@ -1623,7 +1930,12 @@ const MainLayout = () => {
 
                                         </div>
 
-                                        <div className="p-2">
+
+                                        <div
+                                            className="
+                                                p-2
+                                            "
+                                        >
 
                                             <Link
                                                 to="/user/profile"
@@ -1647,11 +1959,14 @@ const MainLayout = () => {
                                                 "
                                             >
 
-                                                <User size={18} />
+                                                <User
+                                                    size={18}
+                                                />
 
                                                 Profile
 
                                             </Link>
+
 
                                             <Link
                                                 to="/user/settings"
@@ -1683,6 +1998,7 @@ const MainLayout = () => {
 
                                             </Link>
 
+
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -1691,51 +2007,13 @@ const MainLayout = () => {
                                                         false
                                                     );
 
-                                                    navigate(
-                                                        "/user/profile"
-                                                    );
-                                                }}
-                                                className="
-                                                    flex
-                                                    w-full
-                                                    items-center
-                                                    gap-3
-                                                    rounded-xl
-                                                    px-3
-                                                    py-2.5
-                                                    text-left
-                                                    text-sm
-                                                    font-medium
-                                                    text-gray-700
-                                                    transition
-                                                    hover:bg-gray-100
-                                                "
-                                            >
-
-                                                <ShieldCheck
-                                                    size={18}
-                                                />
-
-                                                Security
-
-                                            </button>
-
-                                            <div
-                                                className="
-                                                    my-2
-                                                    border-t
-                                                    border-gray-100
-                                                "
-                                            />
-
-                                            <button
-                                                type="button"
-                                                onClick={() =>
                                                     setLogoutModal(
                                                         true
-                                                    )
-                                                }
+                                                    );
+
+                                                }}
                                                 className="
+                                                    mt-1
                                                     flex
                                                     w-full
                                                     items-center
@@ -1765,6 +2043,7 @@ const MainLayout = () => {
                                     </div>
 
                                 </>
+
                             )}
 
                         </div>
@@ -1773,12 +2052,14 @@ const MainLayout = () => {
 
                 </header>
 
+
                 {/* =================================================
-                    QUICK MOBILE ACTIONS
+                    MOBILE QUICK ACTIONS
                 ================================================== */}
 
                 <div
                     className="
+                        shrink-0
                         border-b
                         border-gray-200
                         bg-white
@@ -1791,19 +2072,25 @@ const MainLayout = () => {
                     <div
                         className="
                             flex
+                            items-center
                             gap-2
                             overflow-x-auto
                         "
                     >
 
-                        <Link
-                            to="/user/mail/compose"
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setComposeOpen(
+                                    true
+                                )
+                            }
                             className="
-                                flex
+                                inline-flex
                                 shrink-0
                                 items-center
-                                gap-2
-                                rounded-xl
+                                gap-1.5
+                                rounded-lg
                                 bg-indigo-600
                                 px-3
                                 py-2
@@ -1813,131 +2100,65 @@ const MainLayout = () => {
                             "
                         >
 
-                            <PenSquare size={15} />
+                            <PenSquare
+                                size={15}
+                            />
 
                             Compose
 
-                        </Link>
+                        </button>
+
 
                         <Link
-                            to={buildMailUrl("inbox")}
-                            className={`
-                                flex
-                                shrink-0
-                                items-center
-                                gap-2
-                                rounded-xl
-                                border
-                                px-3
-                                py-2
-                                text-xs
-                                font-medium
-
-                                ${
-                                    folder === "inbox"
-                                        ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                                        : "border-gray-200 bg-white text-gray-700"
-                                }
-                            `}
-                        >
-
-                            <InboxIcon size={15} />
-
-                            Inbox
-
-                            {unreadCount > 0 && (
-
-                                <span
-                                    className="
-                                        rounded-full
-                                        bg-red-500
-                                        px-1.5
-                                        text-[10px]
-                                        font-bold
-                                        text-white
-                                    "
-                                >
-                                    {unreadCount > 99
-                                        ? "99+"
-                                        : unreadCount}
-                                </span>
-
-                            )}
-
-                        </Link>
-
-                        <Link
-                            to={buildMailUrl("sent")}
+                            to="/user/profile"
                             className="
-                                flex
+                                inline-flex
                                 shrink-0
                                 items-center
-                                gap-2
-                                rounded-xl
+                                gap-1.5
+                                rounded-lg
                                 border
                                 border-gray-200
-                                bg-white
                                 px-3
                                 py-2
                                 text-xs
                                 font-medium
-                                text-gray-700
+                                text-gray-600
                             "
                         >
 
-                            <Send size={15} />
+                            <User
+                                size={15}
+                            />
 
-                            Sent
+                            Profile
 
                         </Link>
 
+
                         <Link
-                            to={buildMailUrl("drafts")}
+                            to="/user/settings"
                             className="
-                                flex
+                                inline-flex
                                 shrink-0
                                 items-center
-                                gap-2
-                                rounded-xl
+                                gap-1.5
+                                rounded-lg
                                 border
                                 border-gray-200
-                                bg-white
                                 px-3
                                 py-2
                                 text-xs
                                 font-medium
-                                text-gray-700
+                                text-gray-600
                             "
                         >
 
-                            <FileText size={15} />
+                            <Settings
+                                size={15}
+                            />
 
-                            Drafts
-
-                        </Link>
-
-                        <Link
-                            to={buildMailUrl("trash")}
-                            className="
-                                flex
-                                shrink-0
-                                items-center
-                                gap-2
-                                rounded-xl
-                                border
-                                border-gray-200
-                                bg-white
-                                px-3
-                                py-2
-                                text-xs
-                                font-medium
-                                text-gray-700
-                            "
-                        >
-
-                            <Trash2 size={15} />
-
-                            Trash
+                            Settings
 
                         </Link>
 
@@ -1945,13 +2166,18 @@ const MainLayout = () => {
 
                 </div>
 
+
                 {/* =================================================
                     PAGE CONTENT
                 ================================================== */}
 
                 <main
                     className="
-                        min-h-[calc(100vh-72px)]
+                        min-h-0
+                        min-w-0
+                        flex-1
+                        overflow-x-hidden
+                        overflow-y-auto
                         bg-gray-100
                         p-3
                         sm:p-5
@@ -1964,6 +2190,7 @@ const MainLayout = () => {
                 </main>
 
             </div>
+
 
             {/* =====================================================
                 SEARCH MODAL
@@ -1979,39 +2206,37 @@ const MainLayout = () => {
                         flex
                         items-start
                         justify-center
-                        bg-black/50
-                        p-3
-                        pt-[10vh]
-                        sm:p-6
-                        sm:pt-[15vh]
+                        bg-black/40
+                        px-4
+                        pt-[12vh]
+                        backdrop-blur-sm
                     "
-                    onMouseDown={(event) => {
-
-                        if (
-                            event.target ===
-                            event.currentTarget
-                        ) {
-                            setSearchOpen(false);
-                        }
-
-                    }}
+                    onClick={() =>
+                        setSearchOpen(false)
+                    }
                 >
 
                     <div
                         className="
                             w-full
-                            max-w-2xl
+                            max-w-xl
                             overflow-hidden
                             rounded-2xl
                             bg-white
                             shadow-2xl
                         "
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
                     >
 
                         <form
                             onSubmit={
                                 handleSearchSubmit
                             }
+                            className="
+                                p-4
+                            "
                         >
 
                             <div
@@ -2019,15 +2244,16 @@ const MainLayout = () => {
                                     flex
                                     items-center
                                     gap-3
-                                    border-b
+                                    rounded-xl
+                                    border
                                     border-gray-200
                                     px-4
-                                    py-4
+                                    py-3
                                 "
                             >
 
                                 <Search
-                                    size={21}
+                                    size={20}
                                     className="
                                         shrink-0
                                         text-gray-400
@@ -2037,10 +2263,15 @@ const MainLayout = () => {
                                 <input
                                     autoFocus
                                     type="text"
-                                    value={searchText}
-                                    onChange={(event) =>
+                                    value={
+                                        searchText
+                                    }
+                                    onChange={(
+                                        event
+                                    ) =>
                                         setSearchText(
-                                            event.target.value
+                                            event.target
+                                                .value
                                         )
                                     }
                                     placeholder="
@@ -2050,7 +2281,7 @@ const MainLayout = () => {
                                         min-w-0
                                         flex-1
                                         bg-transparent
-                                        text-base
+                                        text-sm
                                         text-gray-900
                                         outline-none
                                     "
@@ -2068,71 +2299,43 @@ const MainLayout = () => {
                                         p-1.5
                                         text-gray-400
                                         hover:bg-gray-100
+                                        hover:text-gray-700
                                     "
                                 >
-                                    <X size={19} />
+                                    <X size={18} />
                                 </button>
 
                             </div>
 
+
                             <div
                                 className="
+                                    mt-3
                                     flex
-                                    flex-col
-                                    gap-2
-                                    bg-gray-50
-                                    px-4
-                                    py-3
+                                    items-center
+                                    justify-between
                                     text-xs
-                                    text-gray-500
-                                    sm:flex-row
-                                    sm:items-center
-                                    sm:justify-between
+                                    text-gray-400
                                 "
                             >
 
                                 <span>
-                                    Search by subject,
-                                    sender or content
+                                    Search your
+                                    DarkMail messages
                                 </span>
 
-                                <div
+                                <kbd
                                     className="
-                                        flex
-                                        items-center
-                                        gap-2
+                                        rounded
+                                        border
+                                        border-gray-200
+                                        bg-gray-50
+                                        px-2
+                                        py-1
                                     "
                                 >
-
-                                    <kbd
-                                        className="
-                                            rounded
-                                            border
-                                            border-gray-300
-                                            bg-white
-                                            px-1.5
-                                            py-0.5
-                                        "
-                                    >
-                                        Ctrl
-                                    </kbd>
-
-                                    <span>+</span>
-
-                                    <kbd
-                                        className="
-                                            rounded
-                                            border
-                                            border-gray-300
-                                            bg-white
-                                            px-1.5
-                                            py-0.5
-                                        "
-                                    >
-                                        K
-                                    </kbd>
-
-                                </div>
+                                    Enter
+                                </kbd>
 
                             </div>
 
@@ -2141,7 +2344,9 @@ const MainLayout = () => {
                     </div>
 
                 </div>
+
             )}
+
 
             {/* =====================================================
                 LOGOUT MODAL
@@ -2153,13 +2358,17 @@ const MainLayout = () => {
                     className="
                         fixed
                         inset-0
-                        z-[100]
+                        z-[110]
                         flex
                         items-center
                         justify-center
-                        bg-black/50
-                        p-4
+                        bg-black/40
+                        px-4
+                        backdrop-blur-sm
                     "
+                    onClick={() =>
+                        setLogoutModal(false)
+                    }
                 >
 
                     <div
@@ -2171,11 +2380,13 @@ const MainLayout = () => {
                             p-5
                             shadow-2xl
                         "
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
                     >
 
                         <div
                             className="
-                                mb-5
                                 flex
                                 items-center
                                 gap-3
@@ -2194,8 +2405,11 @@ const MainLayout = () => {
                                     text-red-600
                                 "
                             >
-                                <LogOut size={20} />
+                                <LogOut
+                                    size={20}
+                                />
                             </div>
+
 
                             <div>
 
@@ -2223,8 +2437,10 @@ const MainLayout = () => {
 
                         </div>
 
+
                         <div
                             className="
+                                mt-5
                                 flex
                                 flex-col-reverse
                                 gap-2
@@ -2236,7 +2452,9 @@ const MainLayout = () => {
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setLogoutModal(false)
+                                    setLogoutModal(
+                                        false
+                                    )
                                 }
                                 className="
                                     rounded-xl
@@ -2252,6 +2470,7 @@ const MainLayout = () => {
                             >
                                 Cancel
                             </button>
+
 
                             <button
                                 type="button"
@@ -2277,20 +2496,34 @@ const MainLayout = () => {
                     </div>
 
                 </div>
+
             )}
 
+
+            {/* =====================================================
+                COMPOSE MODAL
+            ====================================================== */}
+
             <ComposeModal
-                open={composeOpen}
+                open={
+                    composeOpen
+                }
                 onClose={() =>
-                    setComposeOpen(false)
+                    setComposeOpen(
+                        false
+                    )
                 }
                 onSent={() =>
-                    setComposeOpen(false)
+                    setComposeOpen(
+                        false
+                    )
                 }
             />
-        
+
         </div>
+
     );
+
 };
 
 
@@ -2303,17 +2536,9 @@ const getPageTitle = (
     folder
 ) => {
 
-    /*
-     * New mailbox route
-     *
-     * /user/mail?Folder=inbox
-     * /user/mail?Folder=sent
-     * /user/mail?Folder=drafts
-     * /user/mail?Folder=trash
-     */
-
     if (
-        pathname === "/user/mail"
+        pathname ===
+        "/user/mail"
     ) {
 
         switch (folder) {
@@ -2332,28 +2557,42 @@ const getPageTitle = (
 
             default:
                 return "Inbox";
+
         }
+
     }
 
+
     if (
-        pathname.includes("/user/mail/compose")
+        pathname.includes(
+            "/user/mail/compose"
+        )
     ) {
         return "Compose";
     }
 
+
     if (
-        pathname.includes("/profile")
+        pathname.includes(
+            "/profile"
+        )
     ) {
         return "Profile";
     }
 
+
     if (
-        pathname.includes("/settings")
+        pathname.includes(
+            "/settings"
+        )
     ) {
         return "Settings";
     }
 
+
     return "Dashboard";
+
 };
+
 
 export default MainLayout;

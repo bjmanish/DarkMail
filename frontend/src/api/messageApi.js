@@ -1,10 +1,13 @@
 import api from "./axios";
 
+
 /* =========================================================
    SEARCH RECIPIENTS
 ========================================================= */
 
-export const searchRecipientsApi = async (query = "") => {
+export const searchRecipientsApi = async (
+    query = ""
+) => {
 
     const response = await api.get(
         "/messages/recipients/search",
@@ -23,14 +26,17 @@ export const searchRecipientsApi = async (query = "") => {
    SEND MESSAGE
 ========================================================= */
 
-export const sendMessageApi = async (formData) => {
+export const sendMessageApi = async (
+    formData
+) => {
 
     const response = await api.post(
         "/messages",
         formData,
         {
             headers: {
-                "Content-Type": "multipart/form-data"
+                "Content-Type":
+                    "multipart/form-data"
             }
         }
     );
@@ -43,7 +49,9 @@ export const sendMessageApi = async (formData) => {
    SAVE DRAFT
 ========================================================= */
 
-export const saveDraftApi = async (data) => {
+export const saveDraftApi = async (
+    data
+) => {
 
     const response = await api.post(
         "/messages/drafts",
@@ -72,7 +80,9 @@ export const getDraftsApi = async () => {
    SEND DRAFT
 ========================================================= */
 
-export const sendDraftApi = async (draftId) => {
+export const sendDraftApi = async (
+    draftId
+) => {
 
     const response = await api.post(
         `/messages/drafts/${draftId}/send`
@@ -86,7 +96,9 @@ export const sendDraftApi = async (draftId) => {
    DELETE DRAFT
 ========================================================= */
 
-export const deleteDraftApi = async (draftId) => {
+export const deleteDraftApi = async (
+    draftId
+) => {
 
     const response = await api.delete(
         `/messages/drafts/${draftId}`
@@ -117,20 +129,6 @@ export const getMessagesApi = async ({
         }
     );
 
-    /*
-     * Backend now returns:
-     *
-     * {
-     *     success: true,
-     *     data: [],
-     *     messages: [],
-     *     pagination...
-     * }
-     *
-     * Return the complete response so the
-     * folder pages can access all information.
-     */
-
     return response.data;
 };
 
@@ -139,7 +137,9 @@ export const getMessagesApi = async ({
    GET SINGLE MESSAGE
 ========================================================= */
 
-export const getMessageByIdApi = async (messageId) => {
+export const getMessageByIdApi = async (
+    messageId
+) => {
 
     const response = await api.get(
         `/messages/${messageId}`
@@ -153,7 +153,9 @@ export const getMessageByIdApi = async (messageId) => {
    MARK MESSAGE AS READ
 ========================================================= */
 
-export const markMessageAsReadApi = async (messageId) => {
+export const markMessageAsReadApi = async (
+    messageId
+) => {
 
     const response = await api.patch(
         `/messages/${messageId}/read`
@@ -167,7 +169,9 @@ export const markMessageAsReadApi = async (messageId) => {
    MOVE MESSAGE TO TRASH
 ========================================================= */
 
-export const moveMessageToTrashApi = async (messageId) => {
+export const moveMessageToTrashApi = async (
+    messageId
+) => {
 
     const response = await api.patch(
         `/messages/${messageId}/trash`
@@ -181,7 +185,9 @@ export const moveMessageToTrashApi = async (messageId) => {
    RESTORE MESSAGE
 ========================================================= */
 
-export const restoreMessageApi = async (messageId) => {
+export const restoreMessageApi = async (
+    messageId
+) => {
 
     const response = await api.patch(
         `/messages/${messageId}/restore`
@@ -195,16 +201,18 @@ export const restoreMessageApi = async (messageId) => {
    PERMANENT DELETE MESSAGE
 ========================================================= */
 
-export const permanentlyDeleteMessageApi = async (
-    messageId
-) => {
+export const permanentlyDeleteMessageApi =
+    async (
+        messageId
+    ) => {
 
-    const response = await api.delete(
-        `/messages/${messageId}`
-    );
+        const response =
+            await api.delete(
+                `/messages/${messageId}`
+            );
 
-    return response.data;
-};
+        return response.data;
+    };
 
 
 /* =========================================================
@@ -225,21 +233,24 @@ export const getTrashApi = async () => {
    GET UNREAD COUNT
 ========================================================= */
 
-export const getUnreadCountApi = async () => {
+export const getUnreadCountApi =
+    async () => {
 
-    const response = await api.get(
-        "/messages/unread-count"
-    );
+        const response = await api.get(
+            "/messages/unread-count"
+        );
 
-    return response.data;
-};
+        return response.data;
+    };
 
 
 /* =========================================================
    SEARCH MESSAGES
 ========================================================= */
 
-export const searchMessagesApi = async (query = "") => {
+export const searchMessagesApi = async (
+    query = ""
+) => {
 
     const response = await api.get(
         "/messages/search",
@@ -278,11 +289,81 @@ export const replyToMessageApi = async (
    GET THREAD
 ========================================================= */
 
-export const getThreadApi = async (messageId) => {
+export const getThreadApi = async (
+    messageId
+) => {
 
     const response = await api.get(
         `/messages/${messageId}/thread`
     );
 
     return response.data;
+};
+
+
+/* =========================================================
+   DOWNLOAD ATTACHMENT
+========================================================= */
+
+/*
+ * Backend endpoint:
+ *
+ * GET
+ * /api/messages/:messageId/attachments/:attachmentIndex
+ *
+ * Example:
+ *
+ * /api/messages/
+ * 6abacac1232dcf8dc3a3e5e5/
+ * attachments/0
+ *
+ *
+ * IMPORTANT:
+ *
+ * This request MUST use the `api` Axios instance.
+ *
+ * The Axios request interceptor automatically adds:
+ *
+ * Authorization: Bearer <JWT>
+ *
+ * responseType: "blob" is required because the backend
+ * returns the actual attachment file.
+ */
+
+export const downloadAttachmentApi = async (
+    messageId,
+    attachmentIndex
+) => {
+
+    if (!messageId) {
+
+        throw new Error(
+            "Message ID is required."
+        );
+    }
+
+
+    if (
+        attachmentIndex === undefined ||
+        attachmentIndex === null
+    ) {
+
+        throw new Error(
+            "Attachment index is required."
+        );
+    }
+
+
+    const response = await api.get(
+
+        `/messages/${messageId}/attachments/${attachmentIndex}`,
+
+        {
+            responseType: "blob"
+        }
+
+    );
+
+
+    return response;
 };

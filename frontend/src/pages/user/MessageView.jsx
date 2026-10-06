@@ -1,988 +1,1622 @@
-import React, { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Reply,
-  Forward,
-  Trash2,
-  RotateCcw,
-  Mail,
-  Paperclip,
-  Download,
-  User,
-  Clock,
-  Calendar,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import React, { useState } from "react";
 
 import {
-  getMessageByIdApi,
-  markMessageAsReadApi,
-  moveMessageToTrashApi,
-  restoreMessageApi,
-  permanentlyDeleteMessageApi,
-  replyToMessageApi,
+    ArrowLeft,
+    Reply,
+    Trash2,
+    RotateCcw,
+    Paperclip,
+    Download,
+    Calendar,
+    Clock,
+    Loader2,
+} from "lucide-react";
+
+import {
+    moveMessageToTrashApi,
+    restoreMessageApi,
+    permanentlyDeleteMessageApi,
+    replyToMessageApi,
+    downloadAttachmentApi,
 } from "../../api/messageApi";
 
-const MessageView = () => {
-  const { messageId } = useParams();
-  const navigate = useNavigate();
 
-  const [message, setMessage] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState("");
+const MessageView = ({
+    message,
+    onClose,
+    onMessageDeleted,
+    onMessageUpdated,
+    showCloseButton = false,
+}) => {
 
-  const [showReply, setShowReply] = useState(false);
-  const [replyBody, setReplyBody] = useState("");
+    /* =====================================================
+       STATE
+    ===================================================== */
 
-  /* =====================================================
-     LOAD MESSAGE
-  ===================================================== */
+    const [actionLoading, setActionLoading] =
+        useState(false);
 
-  const loadMessage = async () => {
-    try {
-      setLoading(true);
-      setError("");
+    const [showReply, setShowReply] =
+        useState(false);
 
-      const response = await getMessageByIdApi(messageId);
+    const [replyBody, setReplyBody] =
+        useState("");
 
-      if (!response?.success) {
-        throw new Error(
-          response?.message || "Unable to load message"
-        );
-      }
+    /*
+     * Index of attachment currently downloading.
+     *
+     * null  = nothing downloading
+     * 0     = first attachment
+     * 1     = second attachment
+     */
 
-      const data = response?.data || response?.message;
+    const [downloadingAttachment, setDownloadingAttachment] =
+        useState(null);
 
-      setMessage(data);
 
-      // Mark as read
-      try {
-        await markMessageAsReadApi(messageId);
-      } catch (readError) {
-        console.warn(
-          "Unable to mark message as read:",
-          readError
-        );
-      }
-    } catch (err) {
-      console.error("Load message error:", err);
+    /* =====================================================
+       NO MESSAGE SELECTED
+    ===================================================== */
 
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Unable to load message."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!message) {
 
-  useEffect(() => {
-    if (messageId) {
-      loadMessage();
-    }
-  }, [messageId]);
+        return (
+            <div className="flex h-full min-h-[500px] items-center justify-center bg-white">
 
-  /* =====================================================
-     FORMAT DATE
-  ===================================================== */
+                <div className="px-6 text-center">
 
-  const formatDate = (date) => {
-    if (!date) return "Unknown date";
+                    <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50">
 
-    const parsedDate = new Date(date);
+                        <svg
+                            width="38"
+                            height="38"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            className="text-indigo-500"
+                        >
 
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date;
-    }
+                            <path
+                                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                            />
 
-    return parsedDate.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+                            <polyline points="22,6 12,13 2,6" />
 
-  /* =====================================================
-     GET USER NAME
-  ===================================================== */
+                        </svg>
 
-  const getPersonName = (person) => {
-    if (!person) return "Unknown User";
-
-    if (typeof person === "string") {
-      return person;
-    }
-
-    return (
-      person.name ||
-      person.fullName ||
-      person.employeeName ||
-      person.username ||
-      person.email ||
-      "Unknown User"
-    );
-  };
-
-  /* =====================================================
-     GET EMAIL
-  ===================================================== */
-
-  const getPersonEmail = (person) => {
-    if (!person) return "";
-
-    if (typeof person === "string") {
-      return person;
-    }
-
-    return person.email || person.emailAddress || "";
-  };
-
-  /* =====================================================
-     GET INITIAL
-  ===================================================== */
-
-  const getInitial = (person) => {
-    return (
-      getPersonName(person)
-        ?.charAt(0)
-        ?.toUpperCase() || "U"
-    );
-  };
-
-  /* =====================================================
-     NORMALIZE RECIPIENTS
-  ===================================================== */
-
-  const normalizeRecipients = (recipients) => {
-    if (!recipients) return [];
-
-    if (Array.isArray(recipients)) {
-      return recipients;
-    }
-
-    return [recipients];
-  };
-
-  /* =====================================================
-     ATTACHMENTS
-  ===================================================== */
-
-  const getAttachmentUrl = (index) => {
-    const baseUrl =
-      import.meta.env.VITE_API_URL ||
-      "http://localhost:3000/api";
-
-    return `${baseUrl}/messages/${messageId}/attachments/${index}`;
-  };
-
-  /* =====================================================
-     MOVE TO TRASH
-  ===================================================== */
-
-  const handleTrash = async () => {
-    if (!messageId) return;
-
-    try {
-      setActionLoading(true);
-
-      const response =
-        await moveMessageToTrashApi(messageId);
-
-      if (!response?.success) {
-        throw new Error(
-          response?.message || "Unable to move message to trash."
-        );
-      }
-
-      navigate(-1);
-    } catch (err) {
-      console.error("Trash error:", err);
-
-      alert(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Unable to move message to trash."
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  /* =====================================================
-     RESTORE
-  ===================================================== */
-
-  const handleRestore = async () => {
-    if (!messageId) return;
-
-    try {
-      setActionLoading(true);
-
-      const response =
-        await restoreMessageApi(messageId);
-
-      if (!response?.success) {
-        throw new Error(
-          response?.message || "Unable to restore message."
-        );
-      }
-
-      await loadMessage();
-    } catch (err) {
-      console.error("Restore error:", err);
-
-      alert(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Unable to restore message."
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  /* =====================================================
-     PERMANENT DELETE
-  ===================================================== */
-
-  const handlePermanentDelete = async () => {
-    if (!messageId) return;
-
-    const confirmed = window.confirm(
-      "Are you sure you want to permanently delete this message?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setActionLoading(true);
-
-      const response =
-        await permanentlyDeleteMessageApi(messageId);
-
-      if (!response?.success) {
-        throw new Error(
-          response?.message ||
-            "Unable to permanently delete message."
-        );
-      }
-
-      navigate("/user/trash");
-    } catch (err) {
-      console.error("Permanent delete error:", err);
-
-      alert(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Unable to permanently delete message."
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  /* =====================================================
-     REPLY
-  ===================================================== */
-
-  const handleReply = async () => {
-    if (!replyBody.trim()) {
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-
-      const response = await replyToMessageApi(
-        messageId,
-        replyBody.trim()
-      );
-
-      if (!response?.success) {
-        throw new Error(
-          response?.message || "Unable to send reply."
-        );
-      }
-
-      setReplyBody("");
-      setShowReply(false);
-
-      alert("Reply sent successfully.");
-
-      await loadMessage();
-    } catch (err) {
-      console.error("Reply error:", err);
-
-      alert(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Unable to send reply."
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  /* =====================================================
-     LOADING
-  ===================================================== */
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2
-            size={34}
-            className="animate-spin text-indigo-600"
-          />
-
-          <p className="text-sm text-gray-500">
-            Loading message...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  /* =====================================================
-     ERROR
-  ===================================================== */
-
-  if (error || !message) {
-    return (
-      <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
-            <AlertCircle size={28} />
-          </div>
-
-          <h2 className="text-lg font-bold text-gray-900">
-            Message not found
-          </h2>
-
-          <p className="mt-2 text-sm text-gray-500">
-            {error || "This message could not be loaded."}
-          </p>
-
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-          >
-            <ArrowLeft size={17} />
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* =====================================================
-     MESSAGE DATA
-  ===================================================== */
-
-  const sender = message.sender;
-
-  const toRecipients = normalizeRecipients(message.to);
-  const ccRecipients = normalizeRecipients(message.cc);
-  const bccRecipients = normalizeRecipients(message.bcc);
-
-  const attachments = Array.isArray(message.attachments)
-    ? message.attachments
-    : [];
-
-  const isTrash =
-    message.deletedBy &&
-    Array.isArray(message.deletedBy) &&
-    message.deletedBy.length > 0;
-
-  /* =====================================================
-     RENDER
-  ===================================================== */
-
-  return (
-    <div className="mx-auto w-full max-w-6xl">
-      {/* =================================================
-          TOP TOOLBAR
-      ================================================= */}
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-5">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              px-3
-              py-2
-              text-sm
-              font-medium
-              text-gray-600
-              hover:bg-gray-100
-            "
-          >
-            <ArrowLeft size={18} />
-            <span className="hidden sm:inline">
-              Back
-            </span>
-          </button>
-
-          <div className="h-6 w-px bg-gray-200" />
-
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-            <Mail size={19} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          {/* Reply */}
-          {!isTrash && (
-            <button
-              type="button"
-              onClick={() => setShowReply((prev) => !prev)}
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-xl
-                px-3
-                py-2
-                text-sm
-                font-medium
-                text-gray-600
-                hover:bg-gray-100
-              "
-            >
-              <Reply size={18} />
-
-              <span className="hidden sm:inline">
-                Reply
-              </span>
-            </button>
-          )}
-
-          {/* Restore */}
-          {isTrash && (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={handleRestore}
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-xl
-                px-3
-                py-2
-                text-sm
-                font-medium
-                text-indigo-600
-                hover:bg-indigo-50
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-              "
-            >
-              <RotateCcw size={18} />
-
-              <span className="hidden sm:inline">
-                Restore
-              </span>
-            </button>
-          )}
-
-          {/* Trash */}
-          {!isTrash && (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={handleTrash}
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-xl
-                px-3
-                py-2
-                text-sm
-                font-medium
-                text-red-600
-                hover:bg-red-50
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-              "
-            >
-              <Trash2 size={18} />
-
-              <span className="hidden sm:inline">
-                Trash
-              </span>
-            </button>
-          )}
-
-          {/* Permanent delete */}
-          {isTrash && (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={handlePermanentDelete}
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-xl
-                px-3
-                py-2
-                text-sm
-                font-medium
-                text-red-600
-                hover:bg-red-50
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-              "
-            >
-              <Trash2 size={18} />
-
-              <span className="hidden sm:inline">
-                Delete Permanently
-              </span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* =================================================
-          MESSAGE CARD
-      ================================================= */}
-
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        {/* -------------------------------------------------
-            SUBJECT
-        ------------------------------------------------- */}
-
-        <div className="border-b border-gray-200 px-5 py-5 sm:px-7">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-              <Mail size={22} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <h1 className="break-words text-xl font-bold text-gray-900 sm:text-2xl">
-                {message.subject || "(No Subject)"}
-              </h1>
-
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-                <span className="flex items-center gap-1.5">
-                  <Calendar size={14} />
-                  {formatDate(
-                    message.sentAt ||
-                      message.createdAt
-                  )}
-                </span>
-
-                {message.status && (
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium uppercase">
-                    {message.status}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* -------------------------------------------------
-            SENDER
-        ------------------------------------------------- */}
-
-        <div className="border-b border-gray-100 px-5 py-5 sm:px-7">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white">
-              {getInitial(sender)}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2">
-                <span className="font-semibold text-gray-900">
-                  {getPersonName(sender)}
-                </span>
-
-                {getPersonEmail(sender) && (
-                  <span className="break-all text-sm text-gray-500">
-                    &lt;{getPersonEmail(sender)}&gt;
-                  </span>
-                )}
-              </div>
-
-              {/* TO */}
-              {toRecipients.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1 text-sm text-gray-500">
-                  <span className="font-medium">
-                    To:
-                  </span>
-
-                  {toRecipients.map((person, index) => (
-                    <span key={index}>
-                      {getPersonEmail(person) ||
-                        getPersonName(person)}
-                      {index <
-                      toRecipients.length - 1
-                        ? ","
-                        : ""}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* CC */}
-              {ccRecipients.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1 text-sm text-gray-500">
-                  <span className="font-medium">
-                    Cc:
-                  </span>
-
-                  {ccRecipients.map((person, index) => (
-                    <span key={index}>
-                      {getPersonEmail(person) ||
-                        getPersonName(person)}
-                      {index <
-                      ccRecipients.length - 1
-                        ? ","
-                        : ""}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* BCC */}
-              {bccRecipients.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1 text-sm text-gray-500">
-                  <span className="font-medium">
-                    Bcc:
-                  </span>
-
-                  {bccRecipients.map((person, index) => (
-                    <span key={index}>
-                      {getPersonEmail(person) ||
-                        getPersonName(person)}
-                      {index <
-                      bccRecipients.length - 1
-                        ? ","
-                        : ""}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="hidden items-center gap-1 text-xs text-gray-400 sm:flex">
-              <Clock size={14} />
-              {formatDate(
-                message.sentAt ||
-                  message.createdAt
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* -------------------------------------------------
-            MESSAGE BODY
-        ------------------------------------------------- */}
-
-        <div className="px-5 py-7 sm:px-7">
-          <div
-            className="
-              max-w-none
-              whitespace-pre-wrap
-              break-words
-              text-sm
-              leading-7
-              text-gray-800
-              sm:text-base
-            "
-          >
-            {message.body || "(No message content)"}
-          </div>
-        </div>
-
-        {/* -------------------------------------------------
-            ATTACHMENTS
-        ------------------------------------------------- */}
-
-        {attachments.length > 0 && (
-          <div className="border-t border-gray-200 px-5 py-5 sm:px-7">
-            <div className="mb-4 flex items-center gap-2">
-              <Paperclip
-                size={18}
-                className="text-gray-500"
-              />
-
-              <h3 className="text-sm font-semibold text-gray-900">
-                Attachments ({attachments.length})
-              </h3>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {attachments.map((attachment, index) => {
-                const filename =
-                  attachment?.filename ||
-                  attachment?.originalname ||
-                  attachment?.name ||
-                  `Attachment ${index + 1}`;
-
-                const size =
-                  attachment?.size || 0;
-
-                return (
-                  <a
-                    key={index}
-                    href={getAttachmentUrl(index)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      border
-                      border-gray-200
-                      bg-gray-50
-                      p-3
-                      transition
-                      hover:border-indigo-200
-                      hover:bg-indigo-50
-                    "
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm">
-                      <Paperclip size={18} />
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-800">
-                        {filename}
-                      </p>
 
-                      {size > 0 && (
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {formatFileSize(size)}
-                        </p>
-                      )}
-                    </div>
+                    <h2 className="text-lg font-semibold text-gray-700">
+                        Select a message
+                    </h2>
 
-                    <Download
-                      size={17}
-                      className="shrink-0 text-gray-400"
-                    />
-                  </a>
+
+                    <p className="mt-2 max-w-sm text-sm text-gray-400">
+                        Select an email from the list to view the message here.
+                    </p>
+
+                </div>
+
+            </div>
+        );
+    }
+
+
+    /* =====================================================
+       PERSON HELPERS
+    ===================================================== */
+
+    const getPersonName = (person) => {
+
+        if (!person) {
+            return "Unknown User";
+        }
+
+
+        if (typeof person === "string") {
+            return person;
+        }
+
+
+        return (
+            person.name ||
+            person.fullName ||
+            person.employeeName ||
+            person.username ||
+            person.email ||
+            "Unknown User"
+        );
+    };
+
+
+    const getPersonEmail = (person) => {
+
+        if (!person) {
+            return "";
+        }
+
+
+        if (typeof person === "string") {
+            return person;
+        }
+
+
+        return (
+            person.email ||
+            person.emailAddress ||
+            ""
+        );
+    };
+
+
+    const getInitial = (person) => {
+
+        return (
+            getPersonName(person)
+                ?.charAt(0)
+                ?.toUpperCase() ||
+            "U"
+        );
+    };
+
+
+    /* =====================================================
+       RECIPIENTS
+    ===================================================== */
+
+    const normalizeRecipients = (recipients) => {
+
+        if (!recipients) {
+            return [];
+        }
+
+
+        if (Array.isArray(recipients)) {
+            return recipients;
+        }
+
+
+        return [recipients];
+    };
+
+
+    const toRecipients =
+        normalizeRecipients(message.to);
+
+
+    const ccRecipients =
+        normalizeRecipients(message.cc);
+
+
+    const bccRecipients =
+        normalizeRecipients(message.bcc);
+
+
+    /* =====================================================
+       DATE
+    ===================================================== */
+
+    const formatDate = (date) => {
+
+        if (!date) {
+            return "";
+        }
+
+
+        const parsedDate =
+            new Date(date);
+
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return "";
+        }
+
+
+        return parsedDate.toLocaleString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            }
+        );
+    };
+
+
+    /* =====================================================
+       ATTACHMENTS
+    ===================================================== */
+
+    const attachments =
+        Array.isArray(message.attachments)
+            ? message.attachments
+            : [];
+
+
+    /* =====================================================
+       DOWNLOAD ATTACHMENT
+    ===================================================== */
+
+    const handleDownloadAttachment = async (
+        attachment,
+        index
+    ) => {
+
+        try {
+
+            if (!message?._id) {
+
+                throw new Error(
+                    "Message ID is missing."
                 );
-              })}
-            </div>
-          </div>
-        )}
+            }
 
-        {/* -------------------------------------------------
-            REPLY BOX
-        ------------------------------------------------- */}
 
-        {showReply && !isTrash && (
-          <div className="border-t border-gray-200 bg-gray-50 px-5 py-5 sm:px-7">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <Reply
-                  size={18}
-                  className="text-indigo-600"
-                />
+            /*
+             * Prevent another attachment from being
+             * downloaded while one is already downloading.
+             */
 
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Reply to {getPersonName(sender)}
-                </h3>
-              </div>
+            if (
+                downloadingAttachment !== null
+            ) {
+                return;
+            }
 
-              <textarea
-                value={replyBody}
-                onChange={(e) =>
-                  setReplyBody(e.target.value)
+
+            setDownloadingAttachment(
+                index
+            );
+
+
+            const filename =
+                attachment?.filename ||
+                attachment?.originalname ||
+                attachment?.originalName ||
+                attachment?.name ||
+                `Attachment ${index + 1}`;
+
+
+            console.log(
+                "Downloading attachment:",
+                {
+                    messageId: message._id,
+                    attachmentIndex: index,
+                    filename,
                 }
-                placeholder="Write your reply..."
-                rows={6}
-                className="
-                  w-full
-                  resize-y
-                  rounded-xl
-                  border
-                  border-gray-200
-                  bg-gray-50
-                  p-4
-                  text-sm
-                  text-gray-800
-                  outline-none
-                  transition
-                  placeholder:text-gray-400
-                  focus:border-indigo-500
-                  focus:bg-white
-                  focus:ring-2
-                  focus:ring-indigo-100
-                "
-              />
+            );
 
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowReply(false);
-                    setReplyBody("");
-                  }}
-                  className="
-                    rounded-xl
-                    px-4
-                    py-2.5
-                    text-sm
-                    font-medium
-                    text-gray-600
-                    hover:bg-gray-100
-                  "
-                >
-                  Cancel
-                </button>
 
-                <button
-                  type="button"
-                  disabled={
-                    actionLoading ||
-                    !replyBody.trim()
-                  }
-                  onClick={handleReply}
-                  className="
-                    inline-flex
+            /*
+             * IMPORTANT:
+             *
+             * Do NOT use:
+             *
+             * window.open()
+             * <a href="...">
+             * window.location.href
+             *
+             * The request must go through Axios so that
+             * axios.js adds:
+             *
+             * Authorization: Bearer <JWT>
+             */
+
+            const response =
+                await downloadAttachmentApi(
+                    message._id,
+                    index
+                );
+
+
+            console.log(
+                "Attachment response:",
+                {
+                    status: response?.status,
+                    contentType:
+                        response?.headers?.[
+                            "content-type"
+                        ],
+                }
+            );
+
+
+            /*
+             * Convert response into Blob.
+             */
+
+            const contentType =
+                response?.headers?.[
+                    "content-type"
+                ] ||
+                attachment?.mimeType ||
+                attachment?.mimetype ||
+                "application/octet-stream";
+
+
+            const blob =
+                new Blob(
+                    [response.data],
+                    {
+                        type: contentType,
+                    }
+                );
+
+
+            /*
+             * Create temporary browser URL.
+             */
+
+            const downloadUrl =
+                window.URL.createObjectURL(
+                    blob
+                );
+
+
+            /*
+             * Create temporary download element.
+             *
+             * This is SAFE because this link points to
+             * the locally-created Blob URL, NOT the
+             * protected backend URL.
+             */
+
+            const link =
+                document.createElement("a");
+
+
+            link.href =
+                downloadUrl;
+
+
+            link.download =
+                filename;
+
+
+            link.style.display =
+                "none";
+
+
+            document.body.appendChild(
+                link
+            );
+
+
+            /*
+             * Start browser download.
+             */
+
+            link.click();
+
+
+            /*
+             * Cleanup.
+             */
+
+            document.body.removeChild(
+                link
+            );
+
+
+            window.URL.revokeObjectURL(
+                downloadUrl
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Attachment download error:",
+                error
+            );
+
+
+            console.error(
+                "Attachment download status:",
+                error?.response?.status
+            );
+
+
+            let errorMessage =
+                "Unable to download attachment.";
+
+
+            /*
+             * Because the request uses:
+             *
+             * responseType: "blob"
+             *
+             * backend JSON errors may also arrive
+             * as Blob.
+             */
+
+            try {
+
+                const responseData =
+                    error?.response?.data;
+
+
+                if (
+                    responseData instanceof Blob
+                ) {
+
+                    const text =
+                        await responseData.text();
+
+
+                    try {
+
+                        const json =
+                            JSON.parse(text);
+
+
+                        errorMessage =
+                            json?.message ||
+                            errorMessage;
+
+                    } catch {
+
+                        if (text) {
+                            errorMessage =
+                                text;
+                        }
+                    }
+
+                } else {
+
+                    errorMessage =
+                        error?.response?.data?.message ||
+                        error?.message ||
+                        errorMessage;
+                }
+
+            } catch (parseError) {
+
+                console.error(
+                    "Attachment error parsing failed:",
+                    parseError
+                );
+
+            }
+
+
+            alert(
+                errorMessage
+            );
+
+        } finally {
+
+            setDownloadingAttachment(
+                null
+            );
+
+        }
+    };
+
+
+    /* =====================================================
+       CHECK TRASH
+    ===================================================== */
+
+    const isTrash =
+        Array.isArray(message.deletedBy) &&
+        message.deletedBy.length > 0;
+
+
+    /* =====================================================
+       MOVE TO TRASH
+    ===================================================== */
+
+    const handleTrash = async () => {
+
+        try {
+
+            setActionLoading(true);
+
+
+            const response =
+                await moveMessageToTrashApi(
+                    message._id
+                );
+
+
+            if (!response?.success) {
+
+                throw new Error(
+                    response?.message ||
+                    "Unable to move message to trash."
+                );
+            }
+
+
+            if (onMessageDeleted) {
+
+                onMessageDeleted(
+                    message._id
+                );
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Move to trash error:",
+                error
+            );
+
+
+            alert(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to move message to trash."
+            );
+
+
+        } finally {
+
+            setActionLoading(false);
+
+        }
+    };
+
+
+    /* =====================================================
+       RESTORE
+    ===================================================== */
+
+    const handleRestore = async () => {
+
+        try {
+
+            setActionLoading(true);
+
+
+            const response =
+                await restoreMessageApi(
+                    message._id
+                );
+
+
+            if (!response?.success) {
+
+                throw new Error(
+                    response?.message ||
+                    "Unable to restore message."
+                );
+            }
+
+
+            if (onMessageUpdated) {
+
+                onMessageUpdated();
+
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Restore error:",
+                error
+            );
+
+
+            alert(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to restore message."
+            );
+
+
+        } finally {
+
+            setActionLoading(false);
+
+        }
+    };
+
+
+    /* =====================================================
+       PERMANENT DELETE
+    ===================================================== */
+
+    const handlePermanentDelete = async () => {
+
+        const confirmed =
+            window.confirm(
+                "Are you sure you want to permanently delete this message?"
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        try {
+
+            setActionLoading(true);
+
+
+            const response =
+                await permanentlyDeleteMessageApi(
+                    message._id
+                );
+
+
+            if (!response?.success) {
+
+                throw new Error(
+                    response?.message ||
+                    "Unable to permanently delete message."
+                );
+            }
+
+
+            if (onMessageDeleted) {
+
+                onMessageDeleted(
+                    message._id
+                );
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Permanent delete error:",
+                error
+            );
+
+
+            alert(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to permanently delete message."
+            );
+
+
+        } finally {
+
+            setActionLoading(false);
+
+        }
+    };
+
+
+    /* =====================================================
+       REPLY
+    ===================================================== */
+
+    const handleReply = async () => {
+
+        if (!replyBody.trim()) {
+            return;
+        }
+
+
+        try {
+
+            setActionLoading(true);
+
+
+            const response =
+                await replyToMessageApi(
+                    message._id,
+                    replyBody.trim()
+                );
+
+
+            if (!response?.success) {
+
+                throw new Error(
+                    response?.message ||
+                    "Unable to send reply."
+                );
+            }
+
+
+            setReplyBody("");
+
+            setShowReply(false);
+
+
+            alert(
+                "Reply sent successfully."
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Reply error:",
+                error
+            );
+
+
+            alert(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to send reply."
+            );
+
+
+        } finally {
+
+            setActionLoading(false);
+
+        }
+    };
+
+
+    /* =====================================================
+       RENDER
+    ===================================================== */
+
+    return (
+
+        <div className="flex h-full min-h-0 flex-col bg-white">
+
+            {/* =================================================
+                MESSAGE HEADER
+            ================================================= */}
+
+            <div className="
+                shrink-0
+                border-b
+                border-gray-200
+                px-4
+                py-3
+            ">
+
+                <div className="
+                    flex
                     items-center
-                    gap-2
-                    rounded-xl
-                    bg-indigo-600
+                    justify-between
+                    gap-3
+                ">
+
+                    <div className="
+                        flex
+                        items-center
+                        gap-2
+                    ">
+
+                        {showCloseButton && (
+
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="
+                                    rounded-lg
+                                    p-2
+                                    text-gray-500
+                                    hover:bg-gray-100
+                                "
+                                title="Close"
+                            >
+
+                                <ArrowLeft
+                                    size={19}
+                                />
+
+                            </button>
+
+                        )}
+
+
+                        <h2 className="
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                        ">
+                            Message
+                        </h2>
+
+                    </div>
+
+
+                    <div className="
+                        flex
+                        items-center
+                        gap-1
+                    ">
+
+                        {!isTrash && (
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowReply(
+                                        (previous) =>
+                                            !previous
+                                    )
+                                }
+                                className="
+                                    rounded-lg
+                                    p-2
+                                    text-gray-500
+                                    hover:bg-indigo-50
+                                    hover:text-indigo-600
+                                "
+                                title="Reply"
+                            >
+
+                                <Reply
+                                    size={18}
+                                />
+
+                            </button>
+
+                        )}
+
+
+                        {isTrash ? (
+
+                            <>
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        actionLoading
+                                    }
+                                    onClick={
+                                        handleRestore
+                                    }
+                                    className="
+                                        rounded-lg
+                                        p-2
+                                        text-gray-500
+                                        hover:bg-green-50
+                                        hover:text-green-600
+                                        disabled:opacity-50
+                                    "
+                                    title="Restore"
+                                >
+
+                                    <RotateCcw
+                                        size={18}
+                                    />
+
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        actionLoading
+                                    }
+                                    onClick={
+                                        handlePermanentDelete
+                                    }
+                                    className="
+                                        rounded-lg
+                                        p-2
+                                        text-gray-500
+                                        hover:bg-red-50
+                                        hover:text-red-600
+                                        disabled:opacity-50
+                                    "
+                                    title="Delete permanently"
+                                >
+
+                                    <Trash2
+                                        size={18}
+                                    />
+
+                                </button>
+
+                            </>
+
+                        ) : (
+
+                            <button
+                                type="button"
+                                disabled={
+                                    actionLoading
+                                }
+                                onClick={
+                                    handleTrash
+                                }
+                                className="
+                                    rounded-lg
+                                    p-2
+                                    text-gray-500
+                                    hover:bg-red-50
+                                    hover:text-red-600
+                                    disabled:opacity-50
+                                "
+                                title="Move to trash"
+                            >
+
+                                <Trash2
+                                    size={18}
+                                />
+
+                            </button>
+
+                        )}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            {/* =================================================
+                MESSAGE CONTENT
+            ================================================= */}
+
+            <div className="
+                min-h-0
+                flex-1
+                overflow-y-auto
+            ">
+
+                {/* SUBJECT */}
+
+                <div className="
+                    border-b
+                    border-gray-100
                     px-5
-                    py-2.5
-                    text-sm
-                    font-semibold
-                    text-white
-                    hover:bg-indigo-700
-                    disabled:cursor-not-allowed
-                    disabled:opacity-50
-                  "
-                >
-                  {actionLoading && (
-                    <Loader2
-                      size={16}
-                      className="animate-spin"
+                    py-5
+                ">
+
+                    <h1 className="
+                        break-words
+                        text-xl
+                        font-bold
+                        text-gray-900
+                    ">
+
+                        {message.subject ||
+                            "(No Subject)"}
+
+                    </h1>
+
+
+                    <div className="
+                        mt-2
+                        flex
+                        flex-wrap
+                        items-center
+                        gap-3
+                        text-xs
+                        text-gray-400"
+                    >
+                        <span className="
+                            flex
+                            items-center
+                            gap-1"
+                        >
+
+                            <Calendar
+                                size={13}
+                            />
+
+                            {formatDate(
+                                message.sentAt ||
+                                message.createdAt
+                            )}
+
+                        </span>
+
+
+                        {message.status && (
+
+                            <span className="
+                                rounded-full
+                                bg-gray-100
+                                px-2
+                                py-1
+                                font-medium
+                                uppercase
+                            ">
+
+                                {message.status}
+
+                            </span>
+
+                        )}
+
+                    </div>
+
+                </div>
+
+
+                {/* SENDER */}
+
+                <div className="
+                    border-b
+                    border-gray-100
+                    px-5
+                    py-4
+                ">
+
+                    <div className="
+                        flex
+                        items-start
+                        gap-3
+                    ">
+
+                        <div className="
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-indigo-600
+                            font-semibold
+                            text-white
+                        ">
+
+                            {getInitial(
+                                message.sender
+                            )}
+
+                        </div>
+
+
+                        <div className="
+                            min-w-0
+                            flex-1
+                        ">
+
+                            <div className="
+                                flex
+                                flex-wrap
+                                items-center
+                                gap-2
+                            ">
+
+                                <span className="
+                                    font-semibold
+                                    text-gray-900
+                                ">
+
+                                    {getPersonName(
+                                        message.sender
+                                    )}
+
+                                </span>
+
+
+                                {getPersonEmail(
+                                    message.sender
+                                ) && (
+
+                                    <span className="
+                                        break-all
+                                        text-xs
+                                        text-gray-400
+                                    ">
+
+                                        &lt;
+
+                                        {getPersonEmail(
+                                            message.sender
+                                        )}
+
+                                        &gt;
+
+                                    </span>
+
+                                )}
+
+                            </div>
+
+
+                            {/* TO */}
+
+                            {toRecipients.length > 0 && (
+
+                                <div className="
+                                    mt-1
+                                    text-xs
+                                    text-gray-500
+                                ">
+
+                                    <span className="
+                                        font-medium
+                                    ">
+                                        To:
+                                    </span>{" "}
+
+                                    {toRecipients
+                                        .map(
+                                            (person) =>
+                                                getPersonEmail(
+                                                    person
+                                                ) ||
+                                                getPersonName(
+                                                    person
+                                                )
+                                        )
+                                        .join(", ")}
+
+                                </div>
+
+                            )}
+
+
+                            {/* CC */}
+
+                            {ccRecipients.length > 0 && (
+
+                                <div className="
+                                    mt-1
+                                    text-xs
+                                    text-gray-500
+                                ">
+
+                                    <span className="
+                                        font-medium
+                                    ">
+                                        Cc:
+                                    </span>{" "}
+
+                                    {ccRecipients
+                                        .map(
+                                            (person) =>
+                                                getPersonEmail(
+                                                    person
+                                                ) ||
+                                                getPersonName(
+                                                    person
+                                                )
+                                        )
+                                        .join(", ")}
+
+                                </div>
+
+                            )}
+
+
+                            {/* BCC */}
+
+                            {bccRecipients.length > 0 && (
+
+                                <div className="
+                                    mt-1
+                                    text-xs
+                                    text-gray-500
+                                ">
+
+                                    <span className="
+                                        font-medium
+                                    ">
+                                        Bcc:
+                                    </span>{" "}
+
+                                    {bccRecipients
+                                        .map(
+                                            (person) =>
+                                                getPersonEmail(
+                                                    person
+                                                ) ||
+                                                getPersonName(
+                                                    person
+                                                )
+                                        )
+                                        .join(", ")}
+
+                                </div>
+
+                            )}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                {/* BODY */}
+
+                <div className="
+                    px-5
+                    py-6
+                ">
+
+                    <div className="
+                        whitespace-pre-wrap
+                        break-words
+                        text-sm
+                        leading-7
+                        text-gray-800
+                    ">
+
+                        {message.body ||
+                            "(No message content)"}
+
+                    </div>
+
+                </div>
+
+
+                {/* =================================================
+                    ATTACHMENTS
+                ================================================= */}
+
+                {attachments.length > 0 && (
+
+                    <div className="
+                        border-t
+                        border-gray-100
+                        px-5
+                        py-5
+                    ">
+
+                        <div className="
+                            mb-3
+                            flex
+                            items-center
+                            gap-2
+                        ">
+
+                            <Paperclip
+                                size={17}
+                                className="
+                                    text-gray-500
+                                "
+                            />
+
+
+                            <h3 className="
+                                text-sm
+                                font-semibold
+                                text-gray-800
+                            ">
+
+                                Attachments (
+                                {attachments.length}
+                                )
+
+                            </h3>
+
+                        </div>
+
+
+                        <div className="
+                            space-y-2
+                        ">
+
+                            {attachments.map(
+                                (
+                                    attachment,
+                                    index
+                                ) => {
+
+                                    const filename =
+                                        attachment?.filename ||
+                                        attachment?.originalname ||
+                                        attachment?.originalName ||
+                                        attachment?.name ||
+                                        `Attachment ${
+                                            index + 1
+                                        }`;
+
+
+                                    const isDownloading =
+                                        downloadingAttachment ===
+                                        index;
+
+
+                                    return (
+
+                                        <button
+                                            key={index}
+                                            type="button"
+                                            onClick={() =>
+                                                handleDownloadAttachment(
+                                                    attachment,
+                                                    index
+                                                )
+                                            }
+                                            disabled={
+                                                downloadingAttachment !==
+                                                null
+                                            }
+                                            className="
+                                                flex
+                                                w-full
+                                                items-center
+                                                gap-3
+                                                rounded-xl
+                                                border
+                                                border-gray-200
+                                                bg-gray-50
+                                                p-3
+                                                text-left
+                                                transition
+                                                hover:border-indigo-200
+                                                hover:bg-indigo-50
+                                                disabled:cursor-not-allowed
+                                                disabled:opacity-60
+                                            "
+                                            title={
+                                                isDownloading
+                                                    ? "Downloading..."
+                                                    : `Download ${filename}`
+                                            }
+                                        >
+
+                                            {/* ATTACHMENT ICON */}
+
+                                            <div className="
+                                                flex
+                                                h-9
+                                                w-9
+                                                shrink-0
+                                                items-center
+                                                justify-center
+                                                rounded-lg
+                                                bg-white
+                                                text-indigo-600
+                                                shadow-sm
+                                            ">
+
+                                                {isDownloading ? (
+
+                                                    <Loader2
+                                                        size={17}
+                                                        className="
+                                                            animate-spin
+                                                        "
+                                                    />
+
+                                                ) : (
+
+                                                    <Paperclip
+                                                        size={17}
+                                                    />
+
+                                                )}
+
+                                            </div>
+
+
+                                            {/* FILE NAME */}
+
+                                            <span className="
+                                                min-w-0
+                                                flex-1
+                                                truncate
+                                                text-left
+                                                text-sm
+                                                text-gray-700
+                                            ">
+
+                                                {filename}
+
+                                            </span>
+
+
+                                            {/* DOWNLOAD ICON / STATUS */}
+
+                                            {isDownloading ? (
+
+                                                <span className="
+                                                    shrink-0
+                                                    text-xs
+                                                    font-medium
+                                                    text-indigo-600
+                                                ">
+                                                    Downloading...
+                                                </span>
+
+                                            ) : (
+
+                                                <Download
+                                                    size={16}
+                                                    className="
+                                                        shrink-0
+                                                        text-gray-400
+                                                    "
+                                                />
+
+                                            )}
+
+                                        </button>
+
+                                    );
+                                }
+                            )}
+
+                        </div>
+
+                    </div>
+
+                )}
+
+
+                {/* =================================================
+                    REPLY
+                ================================================= */}
+
+                {showReply && !isTrash && (
+
+                    <div className="
+                        border-t
+                        border-gray-200
+                        bg-gray-50
+                        px-5
+                        py-5
+                    ">
+
+                        <textarea
+                            value={replyBody}
+                            onChange={(event) =>
+                                setReplyBody(
+                                    event.target.value
+                                )
+                            }
+                            rows={5}
+                            placeholder="Write your reply..."
+                            className="
+                                w-full
+                                resize-y
+                                rounded-xl
+                                border
+                                border-gray-200
+                                bg-white
+                                p-4
+                                text-sm
+                                outline-none
+                                focus:border-indigo-500
+                                focus:ring-2
+                                focus:ring-indigo-100
+                            "
+                        />
+
+
+                        <div className="
+                            mt-3
+                            flex
+                            justify-end
+                            gap-2
+                        ">
+
+                            <button
+                                type="button"
+                                onClick={() => {
+
+                                    setShowReply(
+                                        false
+                                    );
+
+                                    setReplyBody(
+                                        ""
+                                    );
+
+                                }}
+                                className="
+                                    rounded-lg
+                                    px-4
+                                    py-2
+                                    text-sm
+                                    text-gray-600
+                                    hover:bg-gray-200
+                                "
+                            >
+                                Cancel
+                            </button>
+
+
+                            <button
+                                type="button"
+                                disabled={
+                                    actionLoading ||
+                                    !replyBody.trim()
+                                }
+                                onClick={
+                                    handleReply
+                                }
+                                className="
+                                    flex
+                                    items-center
+                                    gap-2
+                                    rounded-lg
+                                    bg-indigo-600
+                                    px-4
+                                    py-2
+                                    text-sm
+                                    font-semibold
+                                    text-white
+                                    hover:bg-indigo-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-50
+                                "
+                            >
+
+                                {actionLoading && (
+
+                                    <Loader2
+                                        size={15}
+                                        className="
+                                            animate-spin
+                                        "
+                                    />
+
+                                )}
+
+
+                                <Reply
+                                    size={15}
+                                />
+
+                                Send Reply
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                )}
+
+            </div>
+
+
+            {/* =================================================
+                FOOTER
+            ================================================= */}
+
+            <div className="
+                hidden
+                shrink-0
+                border-t
+                border-gray-100
+                px-5
+                py-2
+                text-xs
+                text-gray-400
+                sm:flex
+                sm:items-center
+                sm:justify-between
+            ">
+
+                <span>
+
+                    {message.sentAt
+                        ? formatDate(
+                            message.sentAt
+                        )
+                        : ""}
+
+                </span>
+
+
+                <span className="
+                    flex
+                    items-center
+                    gap-1
+                ">
+
+                    <Clock
+                        size={12}
                     />
-                  )}
 
-                  <Reply size={16} />
+                    DarkMail
 
-                  Send Reply
-                </button>
-              </div>
+                </span>
+
             </div>
-          </div>
-        )}
 
-        {/* -------------------------------------------------
-            BOTTOM ACTIONS
-        ------------------------------------------------- */}
-
-        {!isTrash && (
-          <div className="border-t border-gray-200 px-5 py-4 sm:px-7">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setShowReply(true)
-                }
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-xl
-                  border
-                  border-gray-200
-                  px-4
-                  py-2.5
-                  text-sm
-                  font-medium
-                  text-gray-700
-                  hover:bg-gray-50
-                "
-              >
-                <Reply size={17} />
-                Reply
-              </button>
-
-              <button
-                type="button"
-                disabled={actionLoading}
-                onClick={handleTrash}
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-xl
-                  border
-                  border-red-200
-                  px-4
-                  py-2.5
-                  text-sm
-                  font-medium
-                  text-red-600
-                  hover:bg-red-50
-                "
-              >
-                <Trash2 size={17} />
-                Move to Trash
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
-/* ========================================================
-   FILE SIZE FORMAT
-======================================================== */
-
-const formatFileSize = (bytes) => {
-  if (!bytes || bytes <= 0) {
-    return "";
-  }
-
-  const units = [
-    "Bytes",
-    "KB",
-    "MB",
-    "GB",
-  ];
-
-  const index = Math.floor(
-    Math.log(bytes) / Math.log(1024)
-  );
-
-  const unitIndex = Math.min(
-    index,
-    units.length - 1
-  );
-
-  const value =
-    bytes / Math.pow(1024, unitIndex);
-
-  return `${value.toFixed(
-    unitIndex === 0 ? 0 : 1
-  )} ${units[unitIndex]}`;
-};
 
 export default MessageView;

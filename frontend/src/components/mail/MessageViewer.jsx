@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+
 import {
     ArrowLeft,
     Reply,
+    ReplyAll,
+    Forward,
     Trash2,
     RotateCcw,
     Paperclip,
@@ -9,6 +12,13 @@ import {
     Calendar,
     Clock,
     Loader2,
+    Send,
+    X,
+    ChevronDown,
+    ChevronUp,
+    Mail,
+    Copy,
+    MoreVertical,
 } from "lucide-react";
 
 import {
@@ -16,7 +26,9 @@ import {
     restoreMessageApi,
     permanentlyDeleteMessageApi,
     replyToMessageApi,
+    downloadAttachmentApi,
 } from "../../api/messageApi";
+
 
 const MessageViewer = ({
     message,
@@ -26,55 +38,673 @@ const MessageViewer = ({
     showCloseButton = false,
 }) => {
 
-    const [actionLoading, setActionLoading] = useState(false);
+    /* =========================================================
+       STATE
+    ========================================================= */
 
-    const [showReply, setShowReply] = useState(false);
+    const [actionLoading, setActionLoading] =
+        useState(false);
 
-    const [replyBody, setReplyBody] = useState("");
+    const [showReply, setShowReply] =
+        useState(false);
 
-    /* =====================================================
-       NO MESSAGE SELECTED
-    ===================================================== */
+    const [replyBody, setReplyBody] =
+        useState("");
+
+    const [showDetails, setShowDetails] =
+        useState(false);
+
+    const [showAllAttachments, setShowAllAttachments] =
+        useState(false);
+
+    const [downloadingAttachment, setDownloadingAttachment] =
+        useState(null);
+
+    const [showMoreMenu, setShowMoreMenu] =
+        useState(false);
+
+
+    /* =========================================================
+       NO MESSAGE
+    ========================================================= */
 
     if (!message) {
         return (
-            <div className="flex h-full min-h-[500px] items-center justify-center bg-white">
-                <div className="px-6 text-center">
+    <div
+        className="
+            flex
+            h-full
+            min-h-0
+            w-full
+            flex-col
+            overflow-hidden
+            bg-white
+        "
+    >
 
-                    <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50">
-                        <svg
-                            width="38"
-                            height="38"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            className="text-indigo-500"
-                        >
-                            <path
-                                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                            />
+        {/* MESSAGE HEADER */}
+        <div
+            className="
+                flex
+                h-14
+                shrink-0
+                items-center
+                justify-between
+                border-b
+                border-gray-200
+                bg-gray-50
+                px-4
+            "
+        >
+            <div className="flex items-center gap-0">
 
-                            <polyline points="22,6 12,13 2,6" />
-                        </svg>
+                {showCloseButton && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="
+                            rounded-lg
+                            p-2
+                            text-gray-500
+                            hover:bg-gray-200
+                        "
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                )}
+
+                <Mail
+                    size={18}
+                    className="shrink-0 text-gray-600"
+                />
+
+                <h2
+                    className="
+                        truncate
+                        text-base
+                        font-medium
+                        text-gray-800
+                    "
+                >
+                    {message.subject || "(No Subject)"}
+                </h2>
+
+            </div>
+
+            <button
+                type="button"
+                onClick={onClose}
+                className="
+                    rounded-lg
+                    p-2
+                    text-gray-500
+                    hover:bg-gray-200
+                "
+            >
+                <X size={20} />
+            </button>
+        </div>
+
+
+        {/* SINGLE MESSAGE CONTENT */}
+        <div
+            className="
+                min-h-0
+                flex-1
+                overflow-y-auto
+                overflow-x-hidden
+                px-4
+                py-4
+            "
+        >
+
+            {/* MESSAGE INFORMATION */}
+            <div
+                className="
+                    rounded-lg
+                    bg-gray-100
+                "
+            >
+
+                {/* SENDER */}
+                <div
+                    className="
+                        flex
+                        items-center
+                        gap-3
+                        border-b
+                        border-gray-200
+                        px-4
+                        py-3
+                    "
+                >
+
+                    <div
+                        className="
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-indigo-600
+                            text-sm
+                            font-semibold
+                            text-white
+                        "
+                    >
+                        {getInitial(message.sender)}
                     </div>
 
-                    <h2 className="text-lg font-semibold text-gray-700">
-                        Select a message
-                    </h2>
+                    <div className="min-w-0 flex-1">
 
-                    <p className="mt-2 max-w-sm text-sm text-gray-400">
-                        Select an email from the list to view the message here.
-                    </p>
+                        <div className="flex flex-wrap gap-2">
+
+                            <span
+                                className="
+                                    font-semibold
+                                    text-gray-800
+                                "
+                            >
+                                {getPersonName(
+                                    message.sender
+                                )}
+                            </span>
+
+                            <span
+                                className="
+                                    break-all
+                                    text-sm
+                                    text-gray-500
+                                "
+                            >
+                                {getPersonEmail(
+                                    message.sender
+                                )}
+                            </span>
+
+                        </div>
+
+                        <div
+                            className="
+                                mt-1
+                                text-xs
+                                text-gray-400
+                            "
+                        >
+                            {formatDate(
+                                message.sentAt ||
+                                message.createdAt
+                            )}
+                        </div>
+
+                    </div>
+
+
+                    {/* ACTIONS */}
+
+                    <div className="flex items-center gap-1">
+
+                        {!isTrash && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowReply(true)
+                                }
+                                className="
+                                    rounded-lg
+                                    p-2
+                                    text-gray-500
+                                    hover:bg-white
+                                    hover:text-indigo-600
+                                "
+                                title="Reply"
+                            >
+                                <Reply size={18} />
+                            </button>
+                        )}
+
+                        {isTrash ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={handleRestore}
+                                    disabled={actionLoading}
+                                    className="
+                                        rounded-lg
+                                        p-2
+                                        text-gray-500
+                                        hover:bg-white
+                                        hover:text-green-600
+                                    "
+                                    title="Restore"
+                                >
+                                    <RotateCcw size={18} />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={
+                                        handlePermanentDelete
+                                    }
+                                    disabled={actionLoading}
+                                    className="
+                                        rounded-lg
+                                        p-2
+                                        text-gray-500
+                                        hover:bg-white
+                                        hover:text-red-600
+                                    "
+                                    title="Delete permanently"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleTrash}
+                                disabled={actionLoading}
+                                className="
+                                    rounded-lg
+                                    p-2
+                                    text-gray-500
+                                    hover:bg-white
+                                    hover:text-red-600
+                                "
+                                title="Move to trash"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
+
+                    </div>
 
                 </div>
+
+
+                {/* RECIPIENTS */}
+                <div
+                    className="
+                        px-4
+                        py-3
+                    "
+                >
+
+                    <div
+                        className="
+                            flex
+                            flex-wrap
+                            items-center
+                            gap-2
+                        "
+                    >
+
+                        <span
+                            className="
+                                mr-1
+                                text-xs
+                                font-medium
+                                text-gray-500
+                            "
+                        >
+                            To:
+                        </span>
+
+                        {toRecipients.map(
+                            (person, index) =>
+                                renderRecipientChip(
+                                    person,
+                                    index
+                                )
+                        )}
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setShowDetails(
+                                !showDetails
+                            )
+                        }
+                        className="
+                            mt-3
+                            text-sm
+                            font-medium
+                            text-blue-600
+                            hover:text-blue-700
+                        "
+                    >
+                        {showDetails
+                            ? "Hide details"
+                            : "Show details"}
+                    </button>
+
+
+                    {showDetails && (
+                        <div
+                            className="
+                                mt-3
+                                space-y-2
+                                border-t
+                                border-gray-200
+                                pt-3
+                            "
+                        >
+
+                            {renderRecipientSection(
+                                "To",
+                                toRecipients
+                            )}
+
+                            {renderRecipientSection(
+                                "Cc",
+                                ccRecipients
+                            )}
+
+                            {renderRecipientSection(
+                                "Bcc",
+                                bccRecipients
+                            )}
+
+                        </div>
+                    )}
+
+                </div>
+
             </div>
-        );
+
+
+            {/* ATTACHMENTS */}
+
+            {attachments.length > 0 && (
+                <div className="mt-4">
+
+                    <div
+                        className="
+                            grid
+                            grid-cols-1
+                            gap-3
+                            md:grid-cols-2
+                        "
+                    >
+
+                        {visibleAttachments.map(
+                            (
+                                attachment,
+                                index
+                            ) => {
+
+                                const filename =
+                                    getAttachmentName(
+                                        attachment,
+                                        index
+                                    );
+
+                                const extension =
+                                    getFileExtension(
+                                        filename
+                                    );
+
+                                return (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() =>
+                                            handleDownloadAttachment(
+                                                attachment,
+                                                index
+                                            )
+                                        }
+                                        className="
+                                            flex
+                                            items-center
+                                            gap-3
+                                            rounded-lg
+                                            bg-gray-100
+                                            p-3
+                                            text-left
+                                            hover:bg-gray-200
+                                        "
+                                    >
+
+                                        <div
+                                            className="
+                                                flex
+                                                h-12
+                                                w-12
+                                                shrink-0
+                                                items-center
+                                                justify-center
+                                                rounded
+                                                bg-yellow-400
+                                                text-xs
+                                                font-semibold
+                                                text-white
+                                            "
+                                        >
+                                            {extension}
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+
+                                            <div
+                                                className="
+                                                    truncate
+                                                    text-sm
+                                                    font-medium
+                                                    text-gray-800
+                                                "
+                                            >
+                                                {filename}
+                                            </div>
+
+                                            <div
+                                                className="
+                                                    mt-1
+                                                    text-xs
+                                                    text-gray-500
+                                                "
+                                            >
+                                                {getAttachmentSize(
+                                                    attachment
+                                                )}
+                                            </div>
+
+                                        </div>
+
+                                        <Download
+                                            size={17}
+                                            className="
+                                                shrink-0
+                                                text-gray-500
+                                            "
+                                        />
+
+                                    </button>
+                                );
+                            }
+                        )}
+
+                    </div>
+
+
+                    <div
+                        className="
+                            mt-3
+                            flex
+                            items-center
+                            gap-4
+                        "
+                    >
+
+                        {attachments.length > 2 && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowAllAttachments(
+                                        !showAllAttachments
+                                    )
+                                }
+                                className="
+                                    text-sm
+                                    font-medium
+                                    text-blue-600
+                                "
+                            >
+                                {showAllAttachments
+                                    ? "Show fewer attachments"
+                                    : `Show all ${attachments.length} attachments`}
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleDownloadAll
+                            }
+                            className="
+                                text-sm
+                                font-medium
+                                text-blue-600
+                            "
+                        >
+                            Download all
+                        </button>
+
+                    </div>
+
+                </div>
+            )}
+
+
+            {/* MESSAGE BODY */}
+
+            <div
+                className="
+                    py-7
+                "
+            >
+                <div
+                    className="
+                        whitespace-pre-wrap
+                        break-words
+                        text-sm
+                        leading-7
+                        text-gray-800
+                    "
+                >
+                    {message.body ||
+                        "(No message content)"}
+                </div>
+            </div>
+
+
+            {/* REPLY */}
+
+            {showReply && !isTrash && (
+                <div
+                    className="
+                        rounded-xl
+                        border
+                        border-gray-200
+                        bg-gray-50
+                        p-4
+                    "
+                >
+
+                    <textarea
+                        value={replyBody}
+                        onChange={(event) =>
+                            setReplyBody(
+                                event.target.value
+                            )
+                        }
+                        rows={5}
+                        placeholder="Write your reply..."
+                        className="
+                            w-full
+                            rounded-lg
+                            border
+                            border-gray-200
+                            bg-white
+                            p-3
+                            text-sm
+                            outline-none
+                            focus:border-indigo-500
+                        "
+                    />
+
+                    <div
+                        className="
+                            mt-3
+                            flex
+                            justify-end
+                            gap-2
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowReply(false);
+                                setReplyBody("");
+                            }}
+                            className="
+                                rounded-lg
+                                px-4
+                                py-2
+                                text-sm
+                                text-gray-600
+                                hover:bg-gray-200
+                            "
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleReply}
+                            disabled={
+                                actionLoading ||
+                                !replyBody.trim()
+                            }
+                            className="
+                                flex
+                                items-center
+                                gap-2
+                                rounded-lg
+                                bg-indigo-600
+                                px-4
+                                py-2
+                                text-sm
+                                font-semibold
+                                text-white
+                                disabled:opacity-50
+                            "
+                        >
+                            <Send size={15} />
+                            Send Reply
+                        </button>
+
+                    </div>
+
+                </div>
+            )}
+
+        </div>
+
+    </div>
+);
     }
 
-    /* =====================================================
+
+    /* =========================================================
        PERSON HELPERS
-    ===================================================== */
+    ========================================================= */
 
     const getPersonName = (person) => {
 
@@ -96,6 +726,7 @@ const MessageViewer = ({
         );
     };
 
+
     const getPersonEmail = (person) => {
 
         if (!person) {
@@ -104,7 +735,7 @@ const MessageViewer = ({
 
         if (typeof person === "string") {
             return person;
-        }
+                }
 
         return (
             person.email ||
@@ -113,18 +744,21 @@ const MessageViewer = ({
         );
     };
 
+
     const getInitial = (person) => {
 
         return (
             getPersonName(person)
                 ?.charAt(0)
-                ?.toUpperCase() || "U"
+                ?.toUpperCase() ||
+            "U"
         );
     };
 
-    /* =====================================================
+
+    /* =========================================================
        RECIPIENTS
-    ===================================================== */
+    ========================================================= */
 
     const normalizeRecipients = (recipients) => {
 
@@ -139,6 +773,7 @@ const MessageViewer = ({
         return [recipients];
     };
 
+
     const toRecipients =
         normalizeRecipients(message.to);
 
@@ -148,9 +783,21 @@ const MessageViewer = ({
     const bccRecipients =
         normalizeRecipients(message.bcc);
 
-    /* =====================================================
+
+    /* =========================================================
+       ALL RECIPIENTS
+    ========================================================= */
+
+    const allRecipients = [
+        ...toRecipients,
+        ...ccRecipients,
+        ...bccRecipients,
+    ];
+
+
+    /* =========================================================
        DATE
-    ===================================================== */
+    ========================================================= */
 
     const formatDate = (date) => {
 
@@ -158,9 +805,14 @@ const MessageViewer = ({
             return "";
         }
 
-        const parsedDate = new Date(date);
+        const parsedDate =
+            new Date(date);
 
-        if (Number.isNaN(parsedDate.getTime())) {
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
             return "";
         }
 
@@ -176,36 +828,369 @@ const MessageViewer = ({
         );
     };
 
-    /* =====================================================
-       ATTACHMENTS
-    ===================================================== */
 
-    const attachments = Array.isArray(
-        message.attachments
-    )
-        ? message.attachments
-        : [];
+    /* =========================================================
+       SHORT DATE
+    ========================================================= */
 
-    const getAttachmentUrl = (index) => {
+    const formatShortDate = (date) => {
 
-        const baseUrl =
-            import.meta.env.VITE_API_URL ||
-            "http://localhost:3000/api";
+        if (!date) {
+            return "";
+        }
 
-        return `${baseUrl}/messages/${message._id}/attachments/${index}`;
+        const parsedDate =
+            new Date(date);
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return "";
+        }
+
+        return parsedDate.toLocaleString(
+            "en-IN",
+            {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            }
+        );
     };
 
-    /* =====================================================
-       CHECK TRASH
-    ===================================================== */
+
+    /* =========================================================
+       ATTACHMENTS
+    ========================================================= */
+
+    const attachments =
+        Array.isArray(message.attachments)
+            ? message.attachments
+            : [];
+
+
+    const visibleAttachments =
+        showAllAttachments
+            ? attachments
+            : attachments.slice(0, 2);
+
+
+    /* =========================================================
+       FILE SIZE
+    ========================================================= */
+
+    const formatFileSize = (bytes) => {
+
+        if (
+            bytes === undefined ||
+            bytes === null ||
+            bytes === ""
+        ) {
+            return "";
+        }
+
+        const size =
+            Number(bytes);
+
+        if (
+            Number.isNaN(size) ||
+            size <= 0
+        ) {
+            return "";
+        }
+
+        if (size < 1024) {
+            return `${size} B`;
+        }
+
+        if (size < 1024 * 1024) {
+            return `${(
+                size / 1024
+            ).toFixed(2)} KB`;
+        }
+
+        if (size < 1024 * 1024 * 1024) {
+            return `${(
+                size /
+                (1024 * 1024)
+            ).toFixed(2)} MB`;
+        }
+
+        return `${(
+            size /
+            (1024 * 1024 * 1024)
+        ).toFixed(2)} GB`;
+    };
+
+
+    /* =========================================================
+       ATTACHMENT NAME
+    ========================================================= */
+
+    const getAttachmentName = (
+        attachment,
+        index
+    ) => {
+
+        return (
+            attachment?.filename ||
+            attachment?.originalname ||
+            attachment?.originalName ||
+            attachment?.name ||
+            `Attachment ${index + 1}`
+        );
+    };
+
+
+    /* =========================================================
+       ATTACHMENT SIZE
+    ========================================================= */
+
+    const getAttachmentSize = (
+        attachment
+    ) => {
+
+        return (
+            formatFileSize(
+                attachment?.size ||
+                attachment?.fileSize ||
+                attachment?.length
+            ) ||
+            attachment?.sizeText ||
+            ""
+        );
+    };
+
+
+    /* =========================================================
+       FILE EXTENSION
+    ========================================================= */
+
+    const getFileExtension = (
+        filename
+    ) => {
+
+        if (!filename) {
+            return "FILE";
+        }
+
+        const parts =
+            filename.split(".");
+
+        if (parts.length < 2) {
+            return "FILE";
+        }
+
+        return parts[
+            parts.length - 1
+        ]
+            .toUpperCase()
+            .slice(0, 5);
+    };
+
+
+    /* =========================================================
+       TRASH STATUS
+    ========================================================= */
 
     const isTrash =
         Array.isArray(message.deletedBy) &&
         message.deletedBy.length > 0;
 
-    /* =====================================================
+
+    /* =========================================================
+       DOWNLOAD SINGLE ATTACHMENT
+    ========================================================= */
+
+    const handleDownloadAttachment = async (
+        attachment,
+        index
+    ) => {
+
+        try {
+
+            if (!message?._id) {
+
+                throw new Error(
+                    "Message ID is missing."
+                );
+            }
+
+            if (
+                downloadingAttachment !==
+                null
+            ) {
+                return;
+            }
+
+            setDownloadingAttachment(index);
+
+            const filename =
+                getAttachmentName(
+                    attachment,
+                    index
+                );
+
+            const response =
+                await downloadAttachmentApi(
+                    message._id,
+                    index
+                );
+
+            const contentType =
+                response?.headers?.[
+                    "content-type"
+                ] ||
+                attachment?.mimeType ||
+                attachment?.mimetype ||
+                "application/octet-stream";
+
+            const blob =
+                new Blob(
+                    [response.data],
+                    {
+                        type: contentType,
+                    }
+                );
+
+            const downloadUrl =
+                window.URL.createObjectURL(
+                    blob
+                );
+
+            const link =
+                document.createElement("a");
+
+            link.href =
+                downloadUrl;
+
+            link.download =
+                filename;
+
+            link.style.display =
+                "none";
+
+            document.body.appendChild(
+                link
+            );
+
+            link.click();
+
+            document.body.removeChild(
+                link
+            );
+
+            window.URL.revokeObjectURL(
+                downloadUrl
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Attachment download error:",
+                error
+            );
+
+            let errorMessage =
+                "Unable to download attachment.";
+
+            try {
+
+                const responseData =
+                    error?.response?.data;
+
+                if (
+                    responseData instanceof Blob
+                ) {
+
+                    const text =
+                        await responseData.text();
+
+                    try {
+
+                        const json =
+                            JSON.parse(text);
+
+                        errorMessage =
+                            json?.message ||
+                            errorMessage;
+
+                    } catch {
+
+                        if (text) {
+                            errorMessage =
+                                text;
+                        }
+                    }
+
+                } else {
+
+                    errorMessage =
+                        error?.response?.data?.message ||
+                        error?.message ||
+                        errorMessage;
+                }
+
+            } catch (parseError) {
+
+                console.error(
+                    "Attachment parsing error:",
+                    parseError
+                );
+            }
+
+            alert(errorMessage);
+
+        } finally {
+
+            setDownloadingAttachment(
+                null
+            );
+        }
+    };
+
+
+    /* =========================================================
+       DOWNLOAD ALL
+    ========================================================= */
+
+    const handleDownloadAll = async () => {
+
+        if (!attachments.length) {
+            return;
+        }
+
+        for (
+            let index = 0;
+            index < attachments.length;
+            index++
+        ) {
+
+            try {
+
+                await handleDownloadAttachment(
+                    attachments[index],
+                    index
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Download all error:",
+                    error
+                );
+            }
+        }
+    };
+
+
+    /* =========================================================
        MOVE TO TRASH
-    ===================================================== */
+    ========================================================= */
 
     const handleTrash = async () => {
 
@@ -219,6 +1204,7 @@ const MessageViewer = ({
                 );
 
             if (!response?.success) {
+
                 throw new Error(
                     response?.message ||
                     "Unable to move message to trash."
@@ -226,7 +1212,10 @@ const MessageViewer = ({
             }
 
             if (onMessageDeleted) {
-                onMessageDeleted(message._id);
+
+                onMessageDeleted(
+                    message._id
+                );
             }
 
         } catch (error) {
@@ -245,13 +1234,13 @@ const MessageViewer = ({
         } finally {
 
             setActionLoading(false);
-
         }
     };
 
-    /* =====================================================
+
+    /* =========================================================
        RESTORE
-    ===================================================== */
+    ========================================================= */
 
     const handleRestore = async () => {
 
@@ -265,6 +1254,7 @@ const MessageViewer = ({
                 );
 
             if (!response?.success) {
+
                 throw new Error(
                     response?.message ||
                     "Unable to restore message."
@@ -291,68 +1281,73 @@ const MessageViewer = ({
         } finally {
 
             setActionLoading(false);
-
         }
     };
 
-    /* =====================================================
+
+    /* =========================================================
        PERMANENT DELETE
-    ===================================================== */
+    ========================================================= */
 
-    const handlePermanentDelete = async () => {
+    const handlePermanentDelete =
+        async () => {
 
-        const confirmed =
-            window.confirm(
-                "Are you sure you want to permanently delete this message?"
-            );
-
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-
-            setActionLoading(true);
-
-            const response =
-                await permanentlyDeleteMessageApi(
-                    message._id
+            const confirmed =
+                window.confirm(
+                    "Are you sure you want to permanently delete this message?"
                 );
 
-            if (!response?.success) {
-                throw new Error(
-                    response?.message ||
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+
+                setActionLoading(true);
+
+                const response =
+                    await permanentlyDeleteMessageApi(
+                        message._id
+                    );
+
+                if (!response?.success) {
+
+                    throw new Error(
+                        response?.message ||
+                        "Unable to permanently delete message."
+                    );
+                }
+
+                if (onMessageDeleted) {
+
+                    onMessageDeleted(
+                        message._id
+                    );
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Permanent delete error:",
+                    error
+                );
+
+                alert(
+                    error?.response?.data?.message ||
+                    error?.message ||
                     "Unable to permanently delete message."
                 );
+
+            } finally {
+
+                setActionLoading(false);
             }
+        };
 
-            if (onMessageDeleted) {
-                onMessageDeleted(message._id);
-            }
 
-        } catch (error) {
-
-            console.error(
-                "Permanent delete error:",
-                error
-            );
-
-            alert(
-                error?.response?.data?.message ||
-                error?.message ||
-                "Unable to permanently delete message."
-            );
-
-        } finally {
-
-            setActionLoading(false);
-
-        }
-    };
-
-    /* =====================================================
+    /* =========================================================
        REPLY
-    ===================================================== */
+    ========================================================= */
 
     const handleReply = async () => {
 
@@ -371,6 +1366,7 @@ const MessageViewer = ({
                 );
 
             if (!response?.success) {
+
                 throw new Error(
                     response?.message ||
                     "Unable to send reply."
@@ -381,7 +1377,9 @@ const MessageViewer = ({
 
             setShowReply(false);
 
-            alert("Reply sent successfully.");
+            alert(
+                "Reply sent successfully."
+            );
 
         } catch (error) {
 
@@ -399,153 +1397,383 @@ const MessageViewer = ({
         } finally {
 
             setActionLoading(false);
-
         }
     };
 
-    return (
-        <div className="flex h-full min-h-0 flex-col bg-white">
 
-            {/* =================================================
-                MESSAGE HEADER
-            ================================================= */}
+    /* =========================================================
+       RECIPIENT CHIP
+    ========================================================= */
 
-            <div className="shrink-0 border-b border-gray-200 px-4 py-3">
+    const renderRecipientChip = (
+        person,
+        index
+    ) => {
 
-                <div className="flex items-center justify-between gap-3">
+        const name =
+            getPersonName(person);
 
-                    <div className="flex items-center gap-2">
+        const email =
+            getPersonEmail(person);
 
-                        {showCloseButton && (
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-                                title="Close"
-                            >
-                                <ArrowLeft size={19} />
-                            </button>
-                        )}
+        return (
+            <div
+                key={`${email}-${index}`}
+                className="
+                    inline-flex
+                    max-w-full
+                    items-center
+                    gap-1.5
+                    rounded-full
+                    bg-white
+                    px-1.5
+                    py-1
+                    shadow-sm
+                    ring-1
+                    ring-gray-200
+                "
+            >
 
-                        <h2 className="text-sm font-semibold text-gray-700">
-                            Message
-                        </h2>
+                <span
+                    className="
+                        flex
+                        h-5
+                        w-5
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-indigo-500
+                        text-[9px]
+                        font-semibold
+                        text-white
+                    "
+                >
+                    {getInitial(person)}
+                </span>
 
-                    </div>
+                <span
+                    className="
+                        max-w-[230px]
+                        truncate
+                        text-xs
+                        text-gray-600
+                    "
+                    title={
+                        email ||
+                        name
+                    }
+                >
+                    {email || name}
+                </span>
 
-                    <div className="flex items-center gap-1">
+                <button
+                    type="button"
+                    className="
+                        flex
+                        h-5
+                        w-5
+                        items-center
+                        justify-center
+                        rounded-full
+                        text-gray-400
+                        hover:bg-gray-100
+                        hover:text-gray-700
+                    "
+                    title="Email"
+                    onClick={() => {
+                        window.location.href =
+                            `mailto:${email}`;
+                    }}
+                >
+                    <Mail size={12} />
+                </button>
 
-                        {!isTrash && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setShowReply(
-                                        (previous) =>
-                                            !previous
-                                    )
-                                }
-                                className="rounded-lg p-2 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600"
-                                title="Reply"
-                            >
-                                <Reply size={18} />
-                            </button>
-                        )}
+                <button
+                    type="button"
+                    className="
+                        flex
+                        h-5
+                        w-5
+                        items-center
+                        justify-center
+                        rounded-full
+                        text-gray-400
+                        hover:bg-gray-100
+                        hover:text-gray-700
+                    "
+                    title="Copy email"
+                    onClick={() => {
+                        if (email) {
+                            navigator.clipboard
+                                ?.writeText(email);
+                        }
+                    }}
+                >
+                    <Copy size={11} />
+                </button>
 
-                        {isTrash ? (
-                            <>
-                                <button
-                                    type="button"
-                                    disabled={actionLoading}
-                                    onClick={handleRestore}
-                                    className="rounded-lg p-2 text-gray-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50"
-                                    title="Restore"
-                                >
-                                    <RotateCcw size={18} />
-                                </button>
+            </div>
+        );
+    };
 
-                                <button
-                                    type="button"
-                                    disabled={actionLoading}
-                                    onClick={
-                                        handlePermanentDelete
-                                    }
-                                    className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                                    title="Delete permanently"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </>
-                        ) : (
-                            <button
-                                type="button"
-                                disabled={actionLoading}
-                                onClick={handleTrash}
-                                className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                                title="Move to trash"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        )}
 
-                    </div>
+    /* =========================================================
+       RENDER RECIPIENT LIST
+    ========================================================= */
 
+    const renderRecipientSection = (
+        label,
+        recipients
+    ) => {
+
+        if (!recipients.length) {
+            return null;
+        }
+
+        return (
+            <div
+                className="
+                    flex
+                    items-start
+                    gap-3
+                "
+            >
+
+                <div
+                    className="
+                        w-14
+                        shrink-0
+                        pt-1
+                        text-xs
+                        font-medium
+                        text-gray-500
+                    "
+                >
+                    {label}:
+                </div>
+
+                <div
+                    className="
+                        flex
+                        min-w-0
+                        flex-wrap
+                        gap-1.5
+                    "
+                >
+                    {recipients.map(
+                        (
+                            person,
+                            index
+                        ) =>
+                            renderRecipientChip(
+                                person,
+                                index
+                            )
+                    )}
                 </div>
 
             </div>
+        );
+    };
+
+
+    /* =========================================================
+       RENDER
+    ========================================================= */
+
+    return (
+        <div
+            className="
+                flex
+                h-full
+                min-h-0
+                flex-col
+                overflow-hidden
+                bg-white
+            "
+        >
 
             {/* =================================================
-                MESSAGE CONTENT
+                SUBJECT HEADER
             ================================================= */}
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div
+                className="
+                    flex
+                    h-[58px]
+                    shrink-0
+                    items-center
+                    justify-between
+                    border-b
+                    border-gray-200
+                    bg-gray-50
+                    px-4
+                "
+            >
 
-                {/* SUBJECT */}
+                <div
+                    className="
+                        flex
+                        min-w-0
+                        items-center
+                        gap-3
+                    "
+                >
 
-                <div className="border-b border-gray-100 px-5 py-5">
+                    {showCloseButton && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="
+                                rounded-lg
+                                p-1.5
+                                text-gray-500
+                                hover:bg-gray-200
+                            "
+                            title="Back"
+                        >
+                            <ArrowLeft
+                                size={18}
+                            />
+                        </button>
+                    )}
 
-                    <h1 className="break-words text-xl font-bold text-gray-900">
+                    <Mail
+                        size={18}
+                        className="
+                            shrink-0
+                            text-gray-600
+                        "
+                    />
+
+                    <h2
+                        className="
+                            truncate
+                            text-base
+                            font-medium
+                            text-gray-800
+                        "
+                        title={
+                            message.subject ||
+                            "(No Subject)"
+                        }
+                    >
                         {message.subject ||
                             "(No Subject)"}
-                    </h1>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
-
-                        <span className="flex items-center gap-1">
-                            <Calendar size={13} />
-
-                            {formatDate(
-                                message.sentAt ||
-                                message.createdAt
-                            )}
-                        </span>
-
-                        {message.status && (
-                            <span className="rounded-full bg-gray-100 px-2 py-1 font-medium uppercase">
-                                {message.status}
-                            </span>
-                        )}
-
-                    </div>
+                    </h2>
 
                 </div>
 
-                {/* SENDER */}
 
-                <div className="border-b border-gray-100 px-5 py-4">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="
+                        rounded-lg
+                        p-1.5
+                        text-gray-500
+                        transition
+                        hover:bg-gray-200
+                        hover:text-gray-800
+                    "
+                    title="Close"
+                >
+                    <X size={21} />
+                </button>
 
-                    <div className="flex items-start gap-3">
+            </div>
 
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white">
+
+            {/* =================================================
+                SCROLLABLE MESSAGE AREA
+            ================================================= */}
+
+            <div
+                className="
+                    min-h-0
+                    flex-1
+                    overflow-y-auto
+                    overflow-x-hidden
+                    bg-white
+                    p-4
+                "
+            >
+
+                {/* =================================================
+                    MESSAGE HEADER CARD
+                ================================================= */}
+
+                <div
+                    className="
+                        overflow-hidden
+                        rounded-lg
+                        bg-gray-100
+                    "
+                >
+
+                    {/* -------------------------------------------------
+                        TOP SENDER ROW
+                    ------------------------------------------------- */}
+
+                    <div
+                        className="
+                            flex
+                            items-center
+                            gap-3
+                            px-3
+                            py-3
+                        "
+                    >
+
+                        {/* SENDER AVATAR */}
+
+                        <div
+                            className="
+                                flex
+                                h-9
+                                w-9
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-orange-400
+                                text-xs
+                                font-semibold
+                                text-white
+                            "
+                        >
                             {getInitial(
                                 message.sender
                             )}
                         </div>
 
-                        <div className="min-w-0 flex-1">
 
-                            <div className="flex flex-wrap items-center gap-2">
+                        {/* SENDER */}
 
-                                <span className="font-semibold text-gray-900">
+                        <div
+                            className="
+                                min-w-0
+                                flex-1
+                            "
+                        >
+
+                            <div
+                                className="
+                                    flex
+                                    flex-wrap
+                                    items-center
+                                    gap-2
+                                "
+                            >
+
+                                <span
+                                    className="
+                                        text-sm
+                                        font-semibold
+                                        text-gray-800
+                                    "
+                                >
                                     {getPersonName(
                                         message.sender
                                     )}
@@ -554,85 +1782,293 @@ const MessageViewer = ({
                                 {getPersonEmail(
                                     message.sender
                                 ) && (
-                                    <span className="break-all text-xs text-gray-400">
-                                        &lt;
-                                        {getPersonEmail(
-                                            message.sender
-                                        )}
-                                        &gt;
+                                    <span
+                                        className="
+                                            truncate
+                                            text-sm
+                                            text-gray-500
+                                        "
+                                    >
+                                        {
+                                            getPersonEmail(
+                                                message.sender
+                                            )
+                                        }
                                     </span>
                                 )}
 
                             </div>
 
-                            {/* TO */}
+                        </div>
 
-                            {toRecipients.length > 0 && (
-                                <div className="mt-1 text-xs text-gray-500">
 
-                                    <span className="font-medium">
-                                        To:
-                                    </span>{" "}
+                        {/* ATTACHMENT INDICATOR */}
 
-                                    {toRecipients
-                                        .map(
-                                            (person) =>
-                                                getPersonEmail(
-                                                    person
-                                                ) ||
-                                                getPersonName(
-                                                    person
-                                                )
-                                        )
-                                        .join(", ")}
+                        {attachments.length > 0 && (
+                            <Paperclip
+                                size={18}
+                                className="
+                                    shrink-0
+                                    text-gray-500
+                                "
+                            />
+                        )}
 
-                                </div>
+
+                        {/* DATE */}
+
+                        <span
+                            className="
+                                hidden
+                                shrink-0
+                                text-xs
+                                text-gray-500
+                                sm:block
+                            "
+                        >
+                            {formatShortDate(
+                                message.sentAt ||
+                                message.createdAt
                             )}
+                        </span>
 
-                            {/* CC */}
 
-                            {ccRecipients.length > 0 && (
-                                <div className="mt-1 text-xs text-gray-500">
+                        {/* REPLY */}
 
-                                    <span className="font-medium">
-                                        Cc:
-                                    </span>{" "}
+                        {!isTrash && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowReply(
+                                        true
+                                    )
+                                }
+                                className="
+                                    rounded-lg
+                                    p-1.5
+                                    text-gray-600
+                                    hover:bg-white
+                                    hover:text-indigo-600
+                                "
+                                title="Reply"
+                            >
+                                <Reply
+                                    size={18}
+                                />
+                            </button>
+                        )}
 
-                                    {ccRecipients
-                                        .map(
-                                            (person) =>
-                                                getPersonEmail(
-                                                    person
-                                                ) ||
-                                                getPersonName(
-                                                    person
-                                                )
-                                        )
-                                        .join(", ")}
 
-                                </div>
-                            )}
+                        {/* REPLY ALL */}
 
-                            {/* BCC */}
+                        {!isTrash && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowReply(
+                                        true
+                                    )
+                                }
+                                className="
+                                    hidden
+                                    rounded-lg
+                                    p-1.5
+                                    text-gray-600
+                                    hover:bg-white
+                                    hover:text-indigo-600
+                                    sm:block
+                                "
+                                title="Reply all"
+                            >
+                                <ReplyAll
+                                    size={18}
+                                />
+                            </button>
+                        )}
 
-                            {bccRecipients.length > 0 && (
-                                <div className="mt-1 text-xs text-gray-500">
 
-                                    <span className="font-medium">
-                                        Bcc:
-                                    </span>{" "}
+                        {/* FORWARD */}
 
-                                    {bccRecipients
-                                        .map(
-                                            (person) =>
-                                                getPersonEmail(
-                                                    person
-                                                ) ||
-                                                getPersonName(
-                                                    person
-                                                )
-                                        )
-                                        .join(", ")}
+                        {!isTrash && (
+                            <button
+                                type="button"
+                                className="
+                                    hidden
+                                    rounded-lg
+                                    p-1.5
+                                    text-gray-600
+                                    hover:bg-white
+                                    hover:text-indigo-600
+                                    md:block
+                                "
+                                title="Forward"
+                            >
+                                <Forward
+                                    size={18}
+                                />
+                            </button>
+                        )}
+
+
+                        {/* DELETE */}
+
+                        {isTrash ? (
+                            <>
+                                <button
+                                    type="button"
+                                    disabled={
+                                        actionLoading
+                                    }
+                                    onClick={
+                                        handleRestore
+                                    }
+                                    className="
+                                        rounded-lg
+                                        p-1.5
+                                        text-gray-600
+                                        hover:bg-white
+                                        hover:text-green-600
+                                        disabled:opacity-50
+                                    "
+                                    title="Restore"
+                                >
+                                    {actionLoading ? (
+                                        <Loader2
+                                            size={18}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <RotateCcw
+                                            size={18}
+                                        />
+                                    )}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        actionLoading
+                                    }
+                                    onClick={
+                                        handlePermanentDelete
+                                    }
+                                    className="
+                                        rounded-lg
+                                        p-1.5
+                                        text-gray-600
+                                        hover:bg-white
+                                        hover:text-red-600
+                                        disabled:opacity-50
+                                    "
+                                    title="Delete permanently"
+                                >
+                                    <Trash2
+                                        size={18}
+                                    />
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled={
+                                    actionLoading
+                                }
+                                onClick={
+                                    handleTrash
+                                }
+                                className="
+                                    rounded-lg
+                                    p-1.5
+                                    text-gray-600
+                                    hover:bg-white
+                                    hover:text-red-600
+                                    disabled:opacity-50
+                                "
+                                title="Move to trash"
+                            >
+                                <Trash2
+                                    size={18}
+                                />
+                            </button>
+                        )}
+
+
+                        {/* MORE */}
+
+                        <div
+                            className="
+                                relative
+                            "
+                        >
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowMoreMenu(
+                                        (value) =>
+                                            !value
+                                    )
+                                }
+                                className="
+                                    rounded-lg
+                                    p-1.5
+                                    text-gray-600
+                                    hover:bg-white
+                                "
+                                title="More"
+                            >
+                                <MoreVertical
+                                    size={18}
+                                />
+                            </button>
+
+
+                            {showMoreMenu && (
+                                <div
+                                    className="
+                                        absolute
+                                        right-0
+                                        top-9
+                                        z-30
+                                        w-44
+                                        overflow-hidden
+                                        rounded-xl
+                                        border
+                                        border-gray-200
+                                        bg-white
+                                        py-1
+                                        shadow-xl
+                                    "
+                                >
+
+                                    <button
+                                        type="button"
+                                        className="
+                                            flex
+                                            w-full
+                                            items-center
+                                            gap-2
+                                            px-3
+                                            py-2
+                                            text-left
+                                            text-sm
+                                            text-gray-600
+                                            hover:bg-gray-50
+                                        "
+                                        onClick={() => {
+                                            setShowDetails(
+                                                true
+                                            );
+                                            setShowMoreMenu(
+                                                false
+                                            );
+                                        }}
+                                    >
+                                        <Mail
+                                            size={15}
+                                        />
+                                        Show details
+                                    </button>
 
                                 </div>
                             )}
@@ -641,93 +2077,469 @@ const MessageViewer = ({
 
                     </div>
 
-                </div>
 
-                {/* BODY */}
+                    {/* -------------------------------------------------
+                        TO / RECIPIENTS
+                    ------------------------------------------------- */}
 
-                <div className="px-5 py-6">
+                    <div
+                        className="
+                            border-t
+                            border-gray-200
+                            px-3
+                            py-2.5
+                        "
+                    >
 
-                    <div className="whitespace-pre-wrap break-words text-sm leading-7 text-gray-800">
-                        {message.body ||
-                            "(No message content)"}
+                        {renderRecipientSection(
+                            "To",
+                            toRecipients
+                        )}
+
                     </div>
 
+
+                    {/* -------------------------------------------------
+                        COLLAPSED DETAILS
+                    ------------------------------------------------- */}
+
+                    {!showDetails && (
+                        <div
+                            className="
+                                px-3
+                                pb-3
+                            "
+                        >
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowDetails(
+                                        true
+                                    )
+                                }
+                                className="
+                                    text-sm
+                                    font-medium
+                                    text-blue-600
+                                    hover:text-blue-700
+                                "
+                            >
+                                Show details
+                            </button>
+
+                        </div>
+                    )}
+
+
+                    {/* -------------------------------------------------
+                        EXPANDED DETAILS
+                    ------------------------------------------------- */}
+
+                    {showDetails && (
+                        <div
+                            className="
+                                space-y-2
+                                border-t
+                                border-gray-200
+                                px-3
+                                py-3
+                            "
+                        >
+
+                            {renderRecipientSection(
+                                "To",
+                                toRecipients
+                            )}
+
+                            {renderRecipientSection(
+                                "Cc",
+                                ccRecipients
+                            )}
+
+                            {renderRecipientSection(
+                                "Bcc",
+                                bccRecipients
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowDetails(
+                                        false
+                                    )
+                                }
+                                className="
+                                    flex
+                                    items-center
+                                    gap-1
+                                    pt-1
+                                    text-sm
+                                    font-medium
+                                    text-blue-600
+                                    hover:text-blue-700
+                                "
+                            >
+                                Hide details
+                                <ChevronUp
+                                    size={15}
+                                />
+                            </button>
+
+                        </div>
+                    )}
+
                 </div>
 
-                {/* ATTACHMENTS */}
+
+                {/* =================================================
+                    ATTACHMENTS
+                ================================================= */}
 
                 {attachments.length > 0 && (
-                    <div className="border-t border-gray-100 px-5 py-5">
+                    <div
+                        className="
+                            mt-3
+                        "
+                    >
 
-                        <div className="mb-3 flex items-center gap-2">
+                        {/* ATTACHMENT CARDS */}
 
-                            <Paperclip
-                                size={17}
-                                className="text-gray-500"
-                            />
+                        <div
+                            className="
+                                grid
+                                grid-cols-1
+                                gap-3
+                                md:grid-cols-2
+                            "
+                        >
 
-                            <h3 className="text-sm font-semibold text-gray-800">
-                                Attachments (
-                                {attachments.length})
-                            </h3>
-
-                        </div>
-
-                        <div className="space-y-2">
-
-                            {attachments.map(
+                            {visibleAttachments.map(
                                 (
                                     attachment,
                                     index
                                 ) => {
 
                                     const filename =
-                                        attachment?.filename ||
-                                        attachment?.originalname ||
-                                        attachment?.name ||
-                                        `Attachment ${
-                                            index + 1
-                                        }`;
+                                        getAttachmentName(
+                                            attachment,
+                                            index
+                                        );
+
+                                    const fileSize =
+                                        getAttachmentSize(
+                                            attachment
+                                        );
+
+                                    const extension =
+                                        getFileExtension(
+                                            filename
+                                        );
+
+                                    const isDownloading =
+                                        downloadingAttachment ===
+                                        index;
 
                                     return (
-                                        <a
+                                        <button
                                             key={index}
-                                            href={getAttachmentUrl(
-                                                index
-                                            )}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 hover:bg-indigo-50"
+                                            type="button"
+                                            onClick={() =>
+                                                handleDownloadAttachment(
+                                                    attachment,
+                                                    index
+                                                )
+                                            }
+                                            disabled={
+                                                downloadingAttachment !==
+                                                null
+                                            }
+                                            className="
+                                                group
+                                                flex
+                                                min-w-0
+                                                items-center
+                                                gap-3
+                                                rounded-lg
+                                                bg-gray-200
+                                                px-3
+                                                py-3
+                                                text-left
+                                                transition
+                                                hover:bg-gray-300
+                                                disabled:cursor-not-allowed
+                                                disabled:opacity-60
+                                            "
                                         >
 
-                                            <Paperclip
-                                                size={17}
-                                                className="text-indigo-600"
-                                            />
+                                            {/* FILE TYPE */}
 
-                                            <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                                                {filename}
-                                            </span>
+                                            <div
+                                                className="
+                                                    flex
+                                                    h-12
+                                                    w-12
+                                                    shrink-0
+                                                    items-center
+                                                    justify-center
+                                                    rounded-md
+                                                    bg-yellow-400
+                                                    text-sm
+                                                    font-medium
+                                                    text-white
+                                                "
+                                            >
+
+                                                {isDownloading ? (
+                                                    <Loader2
+                                                        size={20}
+                                                        className="animate-spin"
+                                                    />
+                                                ) : (
+                                                    extension
+                                                )}
+
+                                            </div>
+
+
+                                            {/* FILE INFO */}
+
+                                            <div
+                                                className="
+                                                    min-w-0
+                                                    flex-1
+                                                "
+                                            >
+
+                                                <div
+                                                    className="
+                                                        truncate
+                                                        text-sm
+                                                        font-medium
+                                                        text-gray-800
+                                                    "
+                                                    title={
+                                                        filename
+                                                    }
+                                                >
+                                                    {filename}
+                                                </div>
+
+                                                {fileSize && (
+                                                    <div
+                                                        className="
+                                                            mt-1
+                                                            text-xs
+                                                            text-gray-500
+                                                        "
+                                                    >
+                                                        {fileSize}
+                                                    </div>
+                                                )}
+
+                                            </div>
+
 
                                             <Download
-                                                size={16}
-                                                className="text-gray-400"
+                                                size={17}
+                                                className="
+                                                    shrink-0
+                                                    text-gray-500
+                                                    opacity-0
+                                                    transition
+                                                    group-hover:opacity-100
+                                                "
                                             />
 
-                                        </a>
+                                        </button>
                                     );
                                 }
                             )}
 
                         </div>
 
+
+                        {/* ATTACHMENT ACTIONS */}
+
+                        <div
+                            className="
+                                mt-3
+                                flex
+                                flex-wrap
+                                items-center
+                                gap-2
+                            "
+                        >
+
+                            {attachments.length > 2 && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowAllAttachments(
+                                            (value) =>
+                                                !value
+                                        )
+                                    }
+                                    className="
+                                        flex
+                                        items-center
+                                        gap-1
+                                        text-sm
+                                        font-medium
+                                        text-blue-600
+                                        hover:text-blue-700
+                                    "
+                                >
+                                    {showAllAttachments
+                                        ? "Show fewer attachments"
+                                        : `Show all ${attachments.length} attachments`}
+
+                                    {showAllAttachments ? (
+                                        <ChevronUp
+                                            size={16}
+                                        />
+                                    ) : (
+                                        <ChevronDown
+                                            size={16}
+                                        />
+                                    )}
+                                </button>
+                            )}
+
+                            <span
+                                className="
+                                    hidden
+                                    text-gray-300
+                                    sm:inline
+                                "
+                            >
+                                |
+                            </span>
+
+                            <button
+                                type="button"
+                                onClick={
+                                    handleDownloadAll
+                                }
+                                disabled={
+                                    downloadingAttachment !==
+                                    null
+                                }
+                                className="
+                                    text-sm
+                                    font-medium
+                                    text-blue-600
+                                    hover:text-blue-700
+                                    disabled:opacity-50
+                                "
+                            >
+                                Download all
+                            </button>
+
+                        </div>
+
                     </div>
                 )}
 
-                {/* REPLY */}
+
+                {/* =================================================
+                    MESSAGE BODY
+                ================================================= */}
+
+                <div
+                    className="
+                        px-1
+                        py-7
+                    "
+                >
+
+                    <div
+                        className="
+                            whitespace-pre-wrap
+                            break-words
+                            text-sm
+                            leading-7
+                            text-gray-800
+                        "
+                    >
+                        {message.body ||
+                            "(No message content)"}
+                    </div>
+
+                </div>
+
+
+                {/* =================================================
+                    REPLY BOX
+                ================================================= */}
 
                 {showReply && !isTrash && (
-                    <div className="border-t border-gray-200 bg-gray-50 px-5 py-5">
+                    <div
+                        className="
+                            mb-4
+                            rounded-xl
+                            border
+                            border-gray-200
+                            bg-gray-50
+                            p-4
+                        "
+                    >
+
+                        <div
+                            className="
+                                mb-3
+                                flex
+                                items-center
+                                justify-between
+                            "
+                        >
+
+                            <div
+                                className="
+                                    flex
+                                    items-center
+                                    gap-2
+                                "
+                            >
+                                <Reply
+                                    size={16}
+                                    className="text-indigo-600"
+                                />
+
+                                <span
+                                    className="
+                                        text-sm
+                                        font-semibold
+                                        text-gray-700
+                                    "
+                                >
+                                    Reply
+                                </span>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowReply(
+                                        false
+                                    );
+                                    setReplyBody(
+                                        ""
+                                    );
+                                }}
+                                className="
+                                    rounded-lg
+                                    p-1.5
+                                    text-gray-400
+                                    hover:bg-gray-200
+                                    hover:text-gray-600
+                                "
+                            >
+                                <X size={16} />
+                            </button>
+
+                        </div>
+
 
                         <textarea
                             value={replyBody}
@@ -738,21 +2550,55 @@ const MessageViewer = ({
                             }
                             rows={5}
                             placeholder="Write your reply..."
-                            className="w-full resize-y rounded-xl border border-gray-200 bg-white p-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                            className="
+                                w-full
+                                resize-y
+                                rounded-xl
+                                border
+                                border-gray-200
+                                bg-white
+                                p-4
+                                text-sm
+                                text-gray-700
+                                outline-none
+                                focus:border-indigo-500
+                                focus:ring-2
+                                focus:ring-indigo-100
+                            "
                         />
 
-                        <div className="mt-3 flex justify-end gap-2">
+
+                        <div
+                            className="
+                                mt-3
+                                flex
+                                justify-end
+                                gap-2
+                            "
+                        >
 
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setShowReply(false);
-                                    setReplyBody("");
+                                    setShowReply(
+                                        false
+                                    );
+                                    setReplyBody(
+                                        ""
+                                    );
                                 }}
-                                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-200"
+                                className="
+                                    rounded-lg
+                                    px-4
+                                    py-2
+                                    text-sm
+                                    text-gray-600
+                                    hover:bg-gray-200
+                                "
                             >
                                 Cancel
                             </button>
+
 
                             <button
                                 type="button"
@@ -760,18 +2606,34 @@ const MessageViewer = ({
                                     actionLoading ||
                                     !replyBody.trim()
                                 }
-                                onClick={handleReply}
-                                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={
+                                    handleReply
+                                }
+                                className="
+                                    flex
+                                    items-center
+                                    gap-2
+                                    rounded-lg
+                                    bg-indigo-600
+                                    px-4
+                                    py-2
+                                    text-sm
+                                    font-semibold
+                                    text-white
+                                    hover:bg-indigo-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-50
+                                "
                             >
 
-                                {actionLoading && (
+                                {actionLoading ? (
                                     <Loader2
                                         size={15}
                                         className="animate-spin"
                                     />
+                                ) : (
+                                    <Send size={15} />
                                 )}
-
-                                <Reply size={15} />
 
                                 Send Reply
 
@@ -784,11 +2646,26 @@ const MessageViewer = ({
 
             </div>
 
+
             {/* =================================================
                 FOOTER
             ================================================= */}
 
-            <div className="hidden shrink-0 border-t border-gray-100 px-5 py-2 text-xs text-gray-400 sm:flex sm:items-center sm:justify-between">
+            <div
+                className="
+                    hidden
+                    h-8
+                    shrink-0
+                    items-center
+                    justify-between
+                    border-t
+                    border-gray-100
+                    px-4
+                    text-[11px]
+                    text-gray-400
+                    sm:flex
+                "
+            >
 
                 <span>
                     {message.sentAt
@@ -798,8 +2675,14 @@ const MessageViewer = ({
                         : ""}
                 </span>
 
-                <span className="flex items-center gap-1">
-                    <Clock size={12} />
+                <span
+                    className="
+                        flex
+                        items-center
+                        gap-1
+                    "
+                >
+                    <Clock size={11} />
                     DarkMail
                 </span>
 
@@ -808,5 +2691,6 @@ const MessageViewer = ({
         </div>
     );
 };
+
 
 export default MessageViewer;

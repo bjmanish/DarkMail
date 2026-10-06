@@ -4,10 +4,7 @@ import {
     useSearchParams,
 } from "react-router-dom";
 
-import Inbox from "./Inbox";
-import Sent from "./Sent";
-import Drafts from "./Drafts";
-import Trash from "./Trash";
+
 
 const MailUser = () => {
 

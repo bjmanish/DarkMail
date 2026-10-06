@@ -6,33 +6,24 @@ import {
 
 import MainLayout from "../../components/layout/MainLayout";
 
-import MailUser from "../../components/layout/MailUser";
+import MailUser from "./MailUser";
 import Profile from "./Profile";
 import Settings from "./Setting";
-
 import ComposeModal from "../../components/mail/ComposeModal";
 
 
 const UserRoutes = () => {
 
     return (
-
         <Routes>
 
             {/* =====================================================
                 USER MAIN LAYOUT
             ====================================================== */}
 
-            <Route
-                element={
-                    <MainLayout />
-                }
-            >
+            <Route element={<MainLayout />}>
 
-                {/* =================================================
-                    /user
-                ================================================== */}
-
+                {/* /user */}
                 <Route
                     index
                     element={
@@ -43,27 +34,14 @@ const UserRoutes = () => {
                     }
                 />
 
-
                 {/* =================================================
-                    MAIL
-                ==================================================
-
-                    Supported URLs:
-
-                    /user/mail?Folder=inbox
-                    /user/mail?Folder=sent
-                    /user/mail?Folder=drafts
-                    /user/mail?Folder=trash
-
+                    MAILBOX
                 ================================================== */}
 
                 <Route
-                    path="mail"
-                    element={
-                        <MailUser />
-                    }
+                    path="/*"
+                    element={<MailUser />}
                 />
-
 
                 {/* =================================================
                     COMPOSE
@@ -71,11 +49,8 @@ const UserRoutes = () => {
 
                 <Route
                     path="compose"
-                    element={
-                        <ComposeModal />
-                    }
+                    element={<ComposeModal />}
                 />
-
 
                 {/* =================================================
                     PROFILE
@@ -83,11 +58,8 @@ const UserRoutes = () => {
 
                 <Route
                     path="profile"
-                    element={
-                        <Profile />
-                    }
+                    element={<Profile />}
                 />
-
 
                 {/* =================================================
                     SETTINGS
@@ -95,18 +67,11 @@ const UserRoutes = () => {
 
                 <Route
                     path="settings"
-                    element={
-                        <Settings />
-                    }
+                    element={<Settings />}
                 />
 
-
                 {/* =================================================
-                    OLD DIRECT ROUTES
-                ==================================================
-
-                    Keep these so old sidebar/bookmarks still work.
-
+                    OLD ROUTES
                 ================================================== */}
 
                 <Route
@@ -119,7 +84,6 @@ const UserRoutes = () => {
                     }
                 />
 
-
                 <Route
                     path="sent"
                     element={
@@ -129,7 +93,6 @@ const UserRoutes = () => {
                         />
                     }
                 />
-
 
                 <Route
                     path="drafts"
@@ -141,7 +104,6 @@ const UserRoutes = () => {
                     }
                 />
 
-
                 <Route
                     path="trash"
                     element={
@@ -151,7 +113,6 @@ const UserRoutes = () => {
                         />
                     }
                 />
-
 
                 {/* =================================================
                     FALLBACK
@@ -172,6 +133,5 @@ const UserRoutes = () => {
         </Routes>
     );
 };
-
 
 export default UserRoutes;

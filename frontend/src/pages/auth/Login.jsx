@@ -414,17 +414,9 @@ const Login = () => {
             return;
         }
 
-
         setLoading(true);
 
-
         try {
-
-            console.log(
-                "DarkMail Login Attempt:",
-                cleanEmail
-            );
-
 
             /* ====================================================
                LOGIN THROUGH AUTH CONTEXT
@@ -435,26 +427,12 @@ const Login = () => {
                 password: password,
             });
 
-
-            console.log(
-                "DarkMail Login Response:",
-                response
-            );
-
-
             /* ====================================================
                EXTRACT USER
             ==================================================== */
 
             const user =
                 extractUser(response);
-
-
-            console.log(
-                "DarkMail User:",
-                user
-            );
-
 
             /* ====================================================
                EXTRACT ROLE
@@ -465,13 +443,6 @@ const Login = () => {
                     response,
                     user
                 );
-
-
-            console.log(
-                "DarkMail Role:",
-                role
-            );
-
 
             /* ====================================================
                VALIDATE ROLE
@@ -564,12 +535,7 @@ const Login = () => {
                 role === "ADMIN" ||
                 role === "ADMINISTRATOR"
             ) {
-
-                console.log(
-                    "Redirecting ADMIN to dashboard..."
-                );
-
-
+                
                 navigate(
                     "/admin/dashboard",
                     {
@@ -1491,7 +1457,7 @@ const Login = () => {
                                 "
                             >
                                 DarkMail Internal Communication
-                                System
+                                System v{import.meta.env.VITE_PACKAGE_VERSION }  {import.meta.env.VITE_PACKAGE_YEAR }
                             </p>
 
 
