@@ -35,7 +35,7 @@ import { getUnreadCountApi } from "../../api/messageApi";
 
 import ComposeModal from "../mail/ComposeModal";
 
-import Hero from "../../assets/Hero.png";
+import Hero from "../../assets/hero.png";
 
 
 const MainLayout = () => {
