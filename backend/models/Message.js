@@ -52,8 +52,8 @@ const messageSchema = new mongoose.Schema(
 
         status: {
             type: String,
-            enum: ["DRAFT", "SENT"],
-            default: "SENT",
+            enum: ["DRAFT", "SENT", "INBOX", "TRASH"],
+            default: "DRAFT",
             index: true
         },
 

@@ -96,10 +96,10 @@ api.interceptors.request.use(
              * Do NOT print the complete JWT.
              */
 
-            console.log(
-                "🔐 Bearer token attached:",
-                `${token.substring(0, 20)}...`
-            );
+            // console.log(
+            //     "🔐 Bearer token attached:",
+            //     `${token.substring(0, 20)}...`
+            // );
 
         } else {
 
@@ -114,11 +114,11 @@ api.interceptors.request.use(
          * Debug request.
          */
 
-        console.log(
-            "📡 API Request:",
-            config.method?.toUpperCase(),
-            `${config.baseURL || ""}${config.url}`
-        );
+        // console.log(
+        //     "📡 API Request:",
+        //     config.method?.toUpperCase(),
+        //     `${config.baseURL || ""}${config.url}`
+        // );
 
 
         return config;

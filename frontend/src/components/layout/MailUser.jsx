@@ -60,7 +60,7 @@ const MailUser = () => {
             );
 
 
-        case "draft":
+        case "drafts":
 
             return (
                 <Drafts

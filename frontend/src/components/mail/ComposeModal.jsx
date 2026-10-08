@@ -1,92 +1,197 @@
-import {
+import React, {
     useEffect,
     useMemo,
-    useState
+    useState,
 } from "react";
+
+import {
+    useNavigate,
+    useSearchParams,
+} from "react-router-dom";
+
+import {
+    X,
+    Paperclip,
+    Send,
+    Save,
+    Loader2,
+    Search,
+    UserPlus,
+    Trash2,
+    FileText,
+    AlertCircle,
+    CheckCircle2,
+} from "lucide-react";
 
 import {
     saveDraftApi,
     sendMessageApi,
-    searchRecipientsApi
+    searchRecipientsApi,
+    getDraftsApi,
 } from "../../api/messageApi";
 
 import {
-    useAuth
+    useAuth,
 } from "../../context/AuthContext";
 
 
+/* =========================================================
+   COMPOSE MODAL
+========================================================= */
+
 const ComposeModal = ({
-    open,
+    open = true,
     onClose,
     onSent,
-    draft = null
+    draft = null,
 }) => {
 
+    /* =====================================================
+       AUTH
+    ===================================================== */
+
     const {
-        user
+        user,
     } = useAuth();
+
+
+    /* =====================================================
+       ROUTER
+    ===================================================== */
+
+    const navigate =
+        useNavigate();
+
+
+    const [
+        searchParams,
+    ] = useSearchParams();
+
+
+    const draftId =
+        searchParams.get(
+            "draftId"
+        );
+
+
+    const isEditingDraft =
+        Boolean(draftId);
 
 
     /* =====================================================
        STATE
     ===================================================== */
 
-    const [employees, setEmployees] =
-        useState([]);
-
-    const [loadingEmployees, setLoadingEmployees] =
-        useState(false);
-
-    const [sending, setSending] =
-        useState(false);
-
-    const [savingDraft, setSavingDraft] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
-
-    const [success, setSuccess] =
-        useState("");
+    const [
+        loadingDraft,
+        setLoadingDraft,
+    ] = useState(false);
 
 
-    const [subject, setSubject] =
-        useState("");
-
-    const [body, setBody] =
-        useState("");
-
-
-    const [to, setTo] =
-        useState([]);
-
-    const [cc, setCc] =
-        useState([]);
-
-    const [bcc, setBcc] =
-        useState([]);
+    const [
+        loadedDraft,
+        setLoadedDraft,
+    ] = useState(draft);
 
 
-    const [showCc, setShowCc] =
-        useState(false);
-
-    const [showBcc, setShowBcc] =
-        useState(false);
-
-
-    const [attachments, setAttachments] =
-        useState([]);
+    const [
+        employees,
+        setEmployees,
+    ] = useState([]);
 
 
-    const [recipientSearch, setRecipientSearch] =
-        useState("");
+    const [
+        loadingEmployees,
+        setLoadingEmployees,
+    ] = useState(false);
 
-    const [recipientMode, setRecipientMode] =
-        useState("to");
+
+    const [
+        sending,
+        setSending,
+    ] = useState(false);
+
+
+    const [
+        savingDraft,
+        setSavingDraft,
+    ] = useState(false);
+
+
+    const [
+        error,
+        setError,
+    ] = useState("");
+
+
+    const [
+        success,
+        setSuccess,
+    ] = useState("");
+
+
+    const [
+        subject,
+        setSubject,
+    ] = useState("");
+
+
+    const [
+        body,
+        setBody,
+    ] = useState("");
+
+
+    const [
+        to,
+        setTo,
+    ] = useState([]);
+
+
+    const [
+        cc,
+        setCc,
+    ] = useState([]);
+
+
+    const [
+        bcc,
+        setBcc,
+    ] = useState([]);
+
+
+    const [
+        showCc,
+        setShowCc,
+    ] = useState(false);
+
+
+    const [
+        showBcc,
+        setShowBcc,
+    ] = useState(false);
+
+
+    const [
+        attachments,
+        setAttachments,
+    ] = useState([]);
+
+
+    const [
+        recipientSearch,
+        setRecipientSearch,
+    ] = useState("");
+
+
+    const [
+        recipientMode,
+        setRecipientMode,
+    ] = useState("to");
 
 
     /* =====================================================
-       RESET
+       RESET FORM
     ===================================================== */
 
     const resetForm = () => {
@@ -114,161 +219,266 @@ const ComposeModal = ({
         setShowCc(false);
 
         setShowBcc(false);
+
+        setLoadedDraft(null);
     };
 
 
     /* =====================================================
-       LOAD EMPLOYEES
+       CLOSE DESTINATION
+       
+       Draft edit -> Drafts
+       New message -> Inbox
+    ===================================================== */
+
+    const getClosePath = () => {
+
+        if (isEditingDraft) {
+
+            return (
+                "/user/mail?Folder=drafts"
+            );
+        }
+
+        return (
+            "/user/mail?Folder=inbox"
+        );
+    };
+
+
+    /* =====================================================
+       CLOSE
+    ===================================================== */
+
+    const handleClose = () => {
+
+        if (
+            sending ||
+            savingDraft ||
+            loadingDraft
+        ) {
+            return;
+        }
+
+
+        resetForm();
+
+
+        if (onClose) {
+
+            onClose();
+
+            return;
+        }
+
+
+        navigate(
+            getClosePath()
+        );
+    };
+
+
+    /* =====================================================
+       ESCAPE KEY
     ===================================================== */
 
     useEffect(() => {
 
-    const search =
-        recipientSearch
-            .trim();
+        if (!open) {
+            return;
+        }
 
 
-    if (!open) {
+        const handleKeyDown = (
+            event
+        ) => {
 
-        return;
-    }
+            if (
+                event.key ===
+                "Escape"
+            ) {
 
-
-    if (!search) {
-
-        setEmployees([]);
-
-        return;
-    }
-
-
-    let cancelled = false;
+                handleClose();
+            }
+        };
 
 
-    const timer =
-        setTimeout(
-            async () => {
-
-                try {
-
-                    setLoadingEmployees(
-                        true
-                    );
+        document.addEventListener(
+            "keydown",
+            handleKeyDown
+        );
 
 
-                    const response =
-                        await searchRecipientsApi(
-                            search
-                        );
+        return () => {
+
+            document.removeEventListener(
+                "keydown",
+                handleKeyDown
+            );
+        };
+
+    }, [
+        open,
+        sending,
+        savingDraft,
+        loadingDraft,
+        isEditingDraft,
+    ]);
 
 
-                    if (
-                        cancelled
-                    ) {
+    /* =====================================================
+       LOAD DRAFT
+       
+       IMPORTANT:
+       
+       When URL contains:
+       
+       /user/compose?draftId=XXXX
+       
+       fetch drafts and locate that draft.
+    ===================================================== */
 
-                        return;
-                    }
+    useEffect(() => {
 
-
-                    const employeeList =
-                        response?.data ||
-                        response?.employees ||
-                        [];
-
-
-                    const currentUserId =
-                        String(
-                            user?._id ||
-                            user?.id ||
-                            ""
-                        );
+        let cancelled =
+            false;
 
 
-                    const filtered =
-                        employeeList.filter(
-                            (employee) => {
+        const loadDraft = async () => {
 
-                                const employeeId =
-                                    String(
-                                        employee?._id ||
-                                        employee?.id ||
-                                        ""
-                                    );
+            /* ---------------------------------------------
+               NOT EDITING
+            --------------------------------------------- */
 
+            if (!draftId) {
 
-                                return (
-                                    employee.isActive !== false &&
-                                    employeeId !==
-                                        currentUserId
-                                );
+                setLoadedDraft(
+                    draft || null
+                );
 
-                            }
-                        );
+                return;
+            }
 
 
-                    setEmployees(
-                        filtered
-                    );
+            /* ---------------------------------------------
+               DRAFT ALREADY PROVIDED
+            --------------------------------------------- */
+
+            if (draft) {
+
+                setLoadedDraft(
+                    draft
+                );
+
+                return;
+            }
 
 
-                } catch (error) {
+            /* ---------------------------------------------
+               LOAD FROM API
+            --------------------------------------------- */
 
-                    if (
-                        cancelled
-                    ) {
+            try {
 
-                        return;
-                    }
+                setLoadingDraft(
+                    true
+                );
 
-
-                    console.error(
-                        "Recipient search error:",
-                        error
-                    );
+                setError("");
 
 
-                    setEmployees([]);
+                const response =
+                    await getDraftsApi();
 
 
-                    /*
-                     * Don't show the error as a
-                     * global compose error for a
-                     * simple search failure.
-                     */
-
-                } finally {
-
-                    if (
-                        !cancelled
-                    ) {
-
-                        setLoadingEmployees(
-                            false
-                        );
-                    }
+                if (cancelled) {
+                    return;
                 }
 
-            },
-            300
-        );
+
+                const draftList =
+                    response?.data ||
+                    response?.messages ||
+                    response?.drafts ||
+                    [];
 
 
-    return () => {
+                const foundDraft =
+                    Array.isArray(
+                        draftList
+                    )
+                        ? draftList.find(
+                            (item) =>
+                                String(
+                                    item?._id ||
+                                    item?.id
+                                ) ===
+                                String(
+                                    draftId
+                                )
+                        )
+                        : null;
 
-        cancelled = true;
 
-        clearTimeout(
-            timer
-        );
+                if (!foundDraft) {
 
-    };
+                    setError(
+                        "Draft not found or it may have been deleted."
+                    );
 
-}, [
-    open,
-    recipientSearch,
-    user?._id,
-    user?.id
-]);
+                    setLoadedDraft(
+                        null
+                    );
+
+                    return;
+                }
+
+
+                setLoadedDraft(
+                    foundDraft
+                );
+
+            } catch (err) {
+
+                console.error(
+                    "Load draft error:",
+                    err
+                );
+
+
+                if (!cancelled) {
+
+                    setError(
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Unable to load draft."
+                    );
+                }
+
+            } finally {
+
+                if (!cancelled) {
+
+                    setLoadingDraft(
+                        false
+                    );
+                }
+            }
+        };
+
+
+        loadDraft();
+
+
+        return () => {
+
+            cancelled = true;
+        };
+
+    }, [
+        draftId,
+        draft,
+    ]);
 
 
     /* =====================================================
@@ -282,56 +492,122 @@ const ComposeModal = ({
         }
 
 
-        if (!draft) {
+        /* ---------------------------------------------
+           WAIT FOR DRAFT
+        --------------------------------------------- */
 
-            resetForm();
+        if (
+            isEditingDraft &&
+            loadingDraft
+        ) {
+            return;
+        }
+
+
+        /* ---------------------------------------------
+           NO DRAFT
+        --------------------------------------------- */
+
+        if (!loadedDraft) {
+
+            if (!isEditingDraft) {
+
+                resetForm();
+            }
 
             return;
         }
 
 
+        /* ---------------------------------------------
+           SUBJECT
+        --------------------------------------------- */
+
         setSubject(
-            draft.subject || ""
+            loadedDraft.subject ||
+            ""
         );
 
+
+        /* ---------------------------------------------
+           BODY
+        --------------------------------------------- */
 
         setBody(
-            draft.body || ""
+            loadedDraft.body ||
+            ""
         );
 
+
+        /* ---------------------------------------------
+           TO
+        --------------------------------------------- */
 
         setTo(
-            Array.isArray(draft.to)
-                ? draft.to
+            Array.isArray(
+                loadedDraft.to
+            )
+                ? loadedDraft.to
                 : []
         );
 
+
+        /* ---------------------------------------------
+           CC
+        --------------------------------------------- */
 
         setCc(
-            Array.isArray(draft.cc)
-                ? draft.cc
+            Array.isArray(
+                loadedDraft.cc
+            )
+                ? loadedDraft.cc
                 : []
         );
 
+
+        /* ---------------------------------------------
+           BCC
+        --------------------------------------------- */
 
         setBcc(
-            Array.isArray(draft.bcc)
-                ? draft.bcc
+            Array.isArray(
+                loadedDraft.bcc
+            )
+                ? loadedDraft.bcc
                 : []
         );
 
+
+        /* ---------------------------------------------
+           CC / BCC VISIBILITY
+        --------------------------------------------- */
 
         setShowCc(
             Boolean(
-                draft.cc?.length
+                loadedDraft.cc?.length
             )
         );
 
 
         setShowBcc(
             Boolean(
-                draft.bcc?.length
+                loadedDraft.bcc?.length
             )
+        );
+
+
+        /* ---------------------------------------------
+           EXISTING ATTACHMENTS
+           
+           Keep them for display.
+        --------------------------------------------- */
+
+        setAttachments(
+            Array.isArray(
+                loadedDraft.attachments
+            )
+                ? loadedDraft.attachments
+                : []
         );
 
 
@@ -342,7 +618,150 @@ const ComposeModal = ({
 
     }, [
         open,
-        draft
+        loadedDraft,
+        isEditingDraft,
+        loadingDraft,
+    ]);
+
+
+    /* =====================================================
+       LOAD EMPLOYEES
+    ===================================================== */
+
+    useEffect(() => {
+
+        const search =
+            recipientSearch.trim();
+
+
+        if (!open) {
+            return;
+        }
+
+
+        if (!search) {
+
+            setEmployees([]);
+
+            return;
+        }
+
+
+        let cancelled =
+            false;
+
+
+        const timer =
+            setTimeout(
+                async () => {
+
+                    try {
+
+                        setLoadingEmployees(
+                            true
+                        );
+
+
+                        const response =
+                            await searchRecipientsApi(
+                                search
+                            );
+
+
+                        if (cancelled) {
+                            return;
+                        }
+
+
+                        const employeeList =
+                            response?.data ||
+                            response?.employees ||
+                            [];
+
+
+                        const currentUserId =
+                            String(
+                                user?._id ||
+                                user?.id ||
+                                ""
+                            );
+
+
+                        const filtered =
+                            employeeList.filter(
+                                (
+                                    employee
+                                ) => {
+
+                                    const employeeId =
+                                        String(
+                                            employee?._id ||
+                                            employee?.id ||
+                                            ""
+                                        );
+
+
+                                    return (
+                                        employee?.isActive !== false &&
+                                        employeeId !==
+                                            currentUserId
+                                    );
+                                }
+                            );
+
+
+                        setEmployees(
+                            filtered
+                        );
+
+                    } catch (err) {
+
+                        if (
+                            cancelled
+                        ) {
+                            return;
+                        }
+
+
+                        console.error(
+                            "Recipient search error:",
+                            err
+                        );
+
+
+                        setEmployees([]);
+
+                    } finally {
+
+                        if (
+                            !cancelled
+                        ) {
+
+                            setLoadingEmployees(
+                                false
+                            );
+                        }
+                    }
+
+                },
+                300
+            );
+
+
+        return () => {
+
+            cancelled = true;
+
+            clearTimeout(
+                timer
+            );
+        };
+
+    }, [
+        open,
+        recipientSearch,
+        user?._id,
+        user?.id,
     ]);
 
 
@@ -377,6 +796,7 @@ const ComposeModal = ({
 
         return (
             employee?.email ||
+            employee?.emailAddress ||
             ""
         );
     };
@@ -397,6 +817,8 @@ const ComposeModal = ({
 
         return (
             employee?.name ||
+            employee?.fullName ||
+            employee?.employeeName ||
             employee?.email ||
             "Unknown"
         );
@@ -434,16 +856,12 @@ const ComposeModal = ({
             recipientMode,
             to,
             cc,
-            bcc
+            bcc,
         ]);
 
 
     /* =====================================================
        FILTER EMPLOYEES
-
-       IMPORTANT:
-       Employee list stays hidden until
-       user enters a search value.
     ===================================================== */
 
     const filteredEmployees =
@@ -455,84 +873,66 @@ const ComposeModal = ({
                     .toLowerCase();
 
 
-            /*
-             * Do not display employees
-             * when search box is empty.
-             */
-
             if (!search) {
 
                 return [];
             }
 
 
-            return employees
-                .filter(
-                    (employee) => {
+            return employees.filter(
+                (
+                    employee
+                ) => {
 
-                        const id =
-                            getEmployeeId(
-                                employee
-                            );
-
-
-                        const alreadySelected =
-                            currentRecipients.some(
-                                (selected) =>
-                                    getEmployeeId(
-                                        selected
-                                    ) === id
-                            );
-
-
-                        /*
-                         * Don't show an employee
-                         * that is already selected.
-                         */
-
-                        if (
-                            alreadySelected
-                        ) {
-
-                            return false;
-                        }
-
-
-                        /*
-                         * Search by:
-                         *
-                         * Name
-                         * Email
-                         * Employee ID
-                         */
-
-                        return (
-
-                            employee.name
-                                ?.toLowerCase()
-                                .includes(search)
-
-                            ||
-
-                            employee.email
-                                ?.toLowerCase()
-                                .includes(search)
-
-                            ||
-
-                            employee.employeeId
-                                ?.toLowerCase()
-                                .includes(search)
-
+                    const id =
+                        getEmployeeId(
+                            employee
                         );
 
+
+                    const alreadySelected =
+                        currentRecipients.some(
+                            (
+                                selected
+                            ) =>
+                                getEmployeeId(
+                                    selected
+                                ) === id
+                        );
+
+
+                    if (
+                        alreadySelected
+                    ) {
+
+                        return false;
                     }
-                );
+
+
+                    return (
+                        employee?.name
+                            ?.toLowerCase()
+                            .includes(search)
+
+                        ||
+
+                        employee?.email
+                            ?.toLowerCase()
+                            .includes(search)
+
+                        ||
+
+                        employee?.employeeId
+                            ?.toLowerCase()
+                            .includes(search)
+                    );
+                }
+            );
 
         }, [
             employees,
             recipientSearch,
-            currentRecipients
+            currentRecipients,
         ]);
 
 
@@ -583,11 +983,10 @@ const ComposeModal = ({
 
                     return [
                         ...previous,
-                        employee
+                        employee,
                     ];
                 }
             );
-
 
         } else if (
             recipientMode ===
@@ -612,11 +1011,10 @@ const ComposeModal = ({
 
                     return [
                         ...previous,
-                        employee
+                        employee,
                     ];
                 }
             );
-
 
         } else {
 
@@ -638,16 +1036,12 @@ const ComposeModal = ({
 
                     return [
                         ...previous,
-                        employee
+                        employee,
                     ];
                 }
             );
         }
 
-
-        /*
-         * Clear search after selection.
-         */
 
         setRecipientSearch("");
     };
@@ -683,7 +1077,6 @@ const ComposeModal = ({
                     )
             );
 
-
         } else if (
             mode ===
             "bcc"
@@ -698,7 +1091,6 @@ const ComposeModal = ({
                             ) !== id
                     )
             );
-
 
         } else {
 
@@ -719,220 +1111,285 @@ const ComposeModal = ({
        CONVERT RECIPIENTS TO EMAILS
     ===================================================== */
 
-    const getRecipientEmails =
-        (list) => {
+    const getRecipientEmails = (
+        list
+    ) => {
 
-            return list
-                .map(
-                    (employee) =>
-                        getEmployeeEmail(
-                            employee
-                        )
-                )
-                .filter(Boolean);
-        };
+        return list
+            .map(
+                (
+                    employee
+                ) =>
+                    getEmployeeEmail(
+                        employee
+                    )
+            )
+            .filter(Boolean);
+    };
 
 
     /* =====================================================
        ATTACHMENTS
     ===================================================== */
 
-    const handleAttachmentChange =
-        (event) => {
+    const handleAttachmentChange = (
+        event
+    ) => {
 
-            const files =
-                Array.from(
-                    event.target.files ||
-                    []
-                );
-
-
-            setAttachments(
-                (previous) => [
-                    ...previous,
-                    ...files
-                ]
+        const files =
+            Array.from(
+                event.target.files ||
+                []
             );
 
 
-            event.target.value = "";
-        };
+        setAttachments(
+            (previous) => [
+                ...previous,
+                ...files,
+            ]
+        );
 
 
-    const removeAttachment =
-        (index) => {
+        event.target.value = "";
+    };
 
-            setAttachments(
-                (previous) =>
-                    previous.filter(
-                        (_, fileIndex) =>
-                            fileIndex !== index
-                    )
+
+    const removeAttachment = (
+        index
+    ) => {
+
+        setAttachments(
+            (previous) =>
+                previous.filter(
+                    (
+                        _,
+                        fileIndex
+                    ) =>
+                        fileIndex !==
+                        index
+                )
+        );
+    };
+
+
+    /* =====================================================
+       ATTACHMENT HELPERS
+    ===================================================== */
+
+    const isFileObject = (
+        file
+    ) => {
+
+        return (
+            file instanceof File
+        );
+    };
+
+
+    const getAttachmentName = (
+        file,
+        index
+    ) => {
+
+        return (
+            file?.name ||
+            file?.filename ||
+            file?.originalname ||
+            `Attachment ${index + 1}`
+        );
+    };
+
+
+    const getAttachmentSize = (
+        file
+    ) => {
+
+        const size =
+            Number(
+                file?.size ||
+                file?.fileSize ||
+                0
             );
-        };
+
+
+        if (!size) {
+            return "";
+        }
+
+
+        if (
+            size <
+            1024
+        ) {
+
+            return `${size} B`;
+        }
+
+
+        if (
+            size <
+            1024 * 1024
+        ) {
+
+            return `${(
+                size / 1024
+            ).toFixed(1)} KB`;
+        }
+
+
+        return `${(
+            size /
+            (1024 * 1024)
+        ).toFixed(1)} MB`;
+    };
 
 
     /* =====================================================
        VALIDATION
     ===================================================== */
 
-    const validate =
-        () => {
+    const validate = () => {
 
-            setError("");
-
-
-            if (!to.length) {
-
-                setError(
-                    "Please select at least one To recipient."
-                );
-
-                return false;
-            }
+        setError("");
 
 
-            if (!subject.trim()) {
+        if (!to.length) {
 
-                setError(
-                    "Please enter a subject."
-                );
+            setError(
+                "Please select at least one To recipient."
+            );
 
-                return false;
-            }
-
-
-            if (!body.trim()) {
-
-                setError(
-                    "Please enter a message."
-                );
-
-                return false;
-            }
+            return false;
+        }
 
 
-            return true;
-        };
+        if (!subject.trim()) {
+
+            setError(
+                "Please enter a subject."
+            );
+
+            return false;
+        }
+
+
+        if (!body.trim()) {
+
+            setError(
+                "Please enter a message."
+            );
+
+            return false;
+        }
+
+
+        return true;
+    };
 
 
     /* =====================================================
        SEND MESSAGE
     ===================================================== */
 
-    const handleSend =
-        async () => {
+    const handleSend = async () => {
 
-            if (!validate()) {
-                return;
-            }
-
-
-            try {
-
-                setSending(true);
-
-                setError("");
-
-                setSuccess("");
+        if (!validate()) {
+            return;
+        }
 
 
-                const formData =
-                    new FormData();
+        try {
+
+            setSending(true);
+
+            setError("");
+
+            setSuccess("");
 
 
-                formData.append(
-                    "subject",
-                    subject.trim()
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "subject",
+                subject.trim()
+            );
+
+
+            formData.append(
+                "body",
+                body.trim()
+            );
+
+
+            const toEmails =
+                getRecipientEmails(
+                    to
                 );
 
 
-                formData.append(
-                    "body",
-                    body.trim()
+            const ccEmails =
+                getRecipientEmails(
+                    cc
                 );
 
 
-                const toEmails =
-                    getRecipientEmails(
-                        to
-                    );
-
-
-                const ccEmails =
-                    getRecipientEmails(
-                        cc
-                    );
-
-
-                const bccEmails =
-                    getRecipientEmails(
-                        bcc
-                    );
-
-
-                console.log(
-                    "================================"
-                );
-
-                console.log(
-                    "COMPOSE SEND"
-                );
-
-                console.log(
-                    "TO:",
-                    toEmails
-                );
-
-                console.log(
-                    "CC:",
-                    ccEmails
-                );
-
-                console.log(
-                    "BCC:",
-                    bccEmails
-                );
-
-                console.log(
-                    "SUBJECT:",
-                    subject
-                );
-
-                console.log(
-                    "================================"
+            const bccEmails =
+                getRecipientEmails(
+                    bcc
                 );
 
 
-                toEmails.forEach(
-                    (email) =>
-                        formData.append(
-                            "to",
-                            email
-                        )
-                );
+            toEmails.forEach(
+                (
+                    email
+                ) =>
+                    formData.append(
+                        "to",
+                        email
+                    )
+            );
 
 
-                ccEmails.forEach(
-                    (email) =>
-                        formData.append(
-                            "cc",
-                            email
-                        )
-                );
+            ccEmails.forEach(
+                (
+                    email
+                ) =>
+                    formData.append(
+                        "cc",
+                        email
+                    )
+            );
 
 
-                bccEmails.forEach(
-                    (email) =>
-                        formData.append(
-                            "bcc",
-                            email
-                        )
-                );
+            bccEmails.forEach(
+                (
+                    email
+                ) =>
+                    formData.append(
+                        "bcc",
+                        email
+                    )
+            );
 
 
-                attachments.forEach(
-                    (file) =>
+            /*
+             * Only append actual File objects.
+             *
+             * Existing draft attachment objects
+             * should not be appended as files again.
+             */
+
+            attachments
+                .filter(
+                    isFileObject
+                )
+                .forEach(
+                    (
+                        file
+                    ) =>
                         formData.append(
                             "attachments",
                             file
@@ -940,68 +1397,100 @@ const ComposeModal = ({
                 );
 
 
-                const response =
-                    await sendMessageApi(
-                        formData
-                    );
+            /*
+             * If editing a draft,
+             * send the draft ID so the backend
+             * can update/delete the old draft
+             * if your API supports it.
+             */
+
+            if (isEditingDraft) {
+
+                formData.append(
+                    "draftId",
+                    draftId
+                );
+
+                formData.append(
+                    "messageId",
+                    draftId
+                );
+            }
 
 
-                if (
-                    !response?.success
-                ) {
-
-                    throw new Error(
-                        response?.message ||
-                        "Failed to send message."
-                    );
-                }
-
-
-                setSuccess(
-                    "Message sent successfully."
+            const response =
+                await sendMessageApi(
+                    formData
                 );
 
 
-                if (onSent) {
+            if (
+                !response?.success
+            ) {
 
-                    onSent(
-                        response
-                    );
-                }
+                throw new Error(
+                    response?.message ||
+                    "Failed to send message."
+                );
+            }
 
 
-                setTimeout(() => {
+            setSuccess(
+                isEditingDraft
+                    ? "Draft sent successfully."
+                    : "Message sent successfully."
+            );
+
+
+            if (onSent) {
+
+                onSent(
+                    response
+                );
+            }
+
+
+            setTimeout(
+                () => {
 
                     resetForm();
+
 
                     if (onClose) {
 
                         onClose();
+
+                    } else {
+
+                        navigate(
+                            "/user/mail?Folder=inbox"
+                        );
                     }
 
-                }, 700);
+                },
+                700
+            );
 
 
-            } catch (err) {
+        } catch (err) {
 
-                console.error(
-                    "Send message error:",
-                    err
-                );
-
-
-                setError(
-                    err.response?.data?.message ||
-                    err.message ||
-                    "Failed to send message."
-                );
+            console.error(
+                "Send message error:",
+                err
+            );
 
 
-            } finally {
+            setError(
+                err?.response?.data?.message ||
+                err?.message ||
+                "Failed to send message."
+            );
 
-                setSending(false);
-            }
-        };
+        } finally {
+
+            setSending(false);
+        }
+    };
 
 
     /* =====================================================
@@ -1013,7 +1502,9 @@ const ComposeModal = ({
 
             try {
 
-                setSavingDraft(true);
+                setSavingDraft(
+                    true
+                );
 
                 setError("");
 
@@ -1022,31 +1513,41 @@ const ComposeModal = ({
 
                 const data = {
 
+                    /*
+                     * Existing draft ID
+                     */
+
                     messageId:
-                        draft?._id ||
-                        draft?.id ||
+                        draftId ||
+                        loadedDraft?._id ||
+                        loadedDraft?.id ||
                         undefined,
+
 
                     subject:
                         subject.trim(),
 
+
                     body:
                         body,
+
 
                     to:
                         getRecipientEmails(
                             to
                         ),
 
+
                     cc:
                         getRecipientEmails(
                             cc
                         ),
 
+
                     bcc:
                         getRecipientEmails(
                             bcc
-                        )
+                        ),
                 };
 
 
@@ -1068,20 +1569,32 @@ const ComposeModal = ({
 
 
                 setSuccess(
-                    "Draft saved successfully."
+                    isEditingDraft
+                        ? "Draft updated successfully."
+                        : "Draft saved successfully."
                 );
 
 
-                setTimeout(() => {
+                setTimeout(
+                    () => {
 
-                    resetForm();
+                        resetForm();
 
-                    if (onClose) {
 
-                        onClose();
-                    }
+                        if (onClose) {
 
-                }, 700);
+                            onClose();
+
+                        } else {
+
+                            navigate(
+                                "/user/mail?Folder=drafts"
+                            );
+                        }
+
+                    },
+                    700
+                );
 
 
             } catch (err) {
@@ -1093,41 +1606,16 @@ const ComposeModal = ({
 
 
                 setError(
-                    err.response?.data?.message ||
-                    err.message ||
+                    err?.response?.data?.message ||
+                    err?.message ||
                     "Failed to save draft."
                 );
 
-
             } finally {
 
-                setSavingDraft(false);
-            }
-        };
-
-
-    /* =====================================================
-       CLOSE
-    ===================================================== */
-
-    const handleClose =
-        () => {
-
-            if (
-                sending ||
-                savingDraft
-            ) {
-
-                return;
-            }
-
-
-            resetForm();
-
-
-            if (onClose) {
-
-                onClose();
+                setSavingDraft(
+                    false
+                );
             }
         };
 
@@ -1138,6 +1626,70 @@ const ComposeModal = ({
 
     if (!open) {
         return null;
+    }
+
+
+    /* =====================================================
+       LOADING DRAFT
+    ===================================================== */
+
+    if (
+        isEditingDraft &&
+        loadingDraft
+    ) {
+
+        return (
+            <div
+                className="
+                    fixed
+                    inset-0
+                    z-[100]
+                    flex
+                    items-center
+                    justify-center
+                    bg-black/50
+                    px-4
+                "
+            >
+
+                <div
+                    className="
+                        flex
+                        w-full
+                        max-w-md
+                        flex-col
+                        items-center
+                        justify-center
+                        rounded-2xl
+                        bg-white
+                        p-8
+                        shadow-2xl
+                    "
+                >
+
+                    <Loader2
+                        size={32}
+                        className="
+                            animate-spin
+                            text-indigo-600
+                        "
+                    />
+
+                    <p
+                        className="
+                            mt-4
+                            text-sm
+                            font-medium
+                            text-gray-700
+                        "
+                    >
+                        Loading draft...
+                    </p>
+
+                </div>
+
+            </div>
+        );
     }
 
 
@@ -1156,9 +1708,24 @@ const ComposeModal = ({
                 items-center
                 justify-center
                 bg-black/50
-                pl-14
-                ml-14
+                px-4
+                py-4
             "
+            onMouseDown={(event) => {
+
+                /*
+                 * Clicking the dark background closes
+                 * the compose window.
+                 */
+
+                if (
+                    event.target ===
+                    event.currentTarget
+                ) {
+
+                    handleClose();
+                }
+            }}
         >
 
             <div
@@ -1173,6 +1740,15 @@ const ComposeModal = ({
                     bg-white
                     shadow-2xl
                 "
+                onMouseDown={(event) => {
+
+                    /*
+                     * Prevent click inside modal
+                     * from closing it.
+                     */
+
+                    event.stopPropagation();
+                }}
             >
 
                 {/* =================================================
@@ -1182,32 +1758,65 @@ const ComposeModal = ({
                 <div
                     className="
                         flex
+                        shrink-0
                         items-center
                         justify-between
                         border-b
+                        border-gray-200
                         px-5
                         py-4
                     "
                 >
 
-                    <div>
+                    <div
+                        className="
+                            min-w-0
+                        "
+                    >
 
-                        <h2
+                        <div
                             className="
-                                text-lg
-                                font-semibold
-                                text-gray-900
+                                flex
+                                items-center
+                                gap-2
                             "
                         >
-                            {
-                                draft
+
+                            <h2
+                                className="
+                                    text-lg
+                                    font-semibold
+                                    text-gray-900
+                                "
+                            >
+                                {isEditingDraft
                                     ? "Edit Draft"
-                                    : "New Message"
-                            }
-                        </h2>
+                                    : "New Message"}
+                            </h2>
+
+
+                            {isEditingDraft && (
+                                <span
+                                    className="
+                                        rounded-full
+                                        bg-yellow-100
+                                        px-2
+                                        py-0.5
+                                        text-[10px]
+                                        font-semibold
+                                        text-yellow-700
+                                    "
+                                >
+                                    DRAFT
+                                </span>
+                            )}
+
+                        </div>
+
 
                         <p
                             className="
+                                mt-0.5
                                 text-xs
                                 text-gray-500
                             "
@@ -1218,6 +1827,8 @@ const ComposeModal = ({
                     </div>
 
 
+                    {/* CLOSE */}
+
                     <button
                         type="button"
                         onClick={
@@ -1225,17 +1836,25 @@ const ComposeModal = ({
                         }
                         disabled={
                             sending ||
-                            savingDraft
+                            savingDraft ||
+                            loadingDraft
                         }
                         className="
                             rounded-lg
                             p-2
                             text-gray-500
+                            transition
                             hover:bg-gray-100
+                            hover:text-gray-800
+                            disabled:cursor-not-allowed
                             disabled:opacity-50
                         "
+                        title="Close"
+                        aria-label="Close compose"
                     >
-                        ✕
+                        <X
+                            size={21}
+                        />
                     </button>
 
                 </div>
@@ -1253,13 +1872,17 @@ const ComposeModal = ({
                     "
                 >
 
-                    {/* ERROR */}
+                    {/* =================================================
+                        ERROR
+                    ================================================= */}
 
                     {error && (
-
                         <div
                             className="
                                 mb-4
+                                flex
+                                items-start
+                                gap-2
                                 rounded-lg
                                 border
                                 border-red-200
@@ -1270,18 +1893,34 @@ const ComposeModal = ({
                                 text-red-700
                             "
                         >
-                            {error}
+
+                            <AlertCircle
+                                size={18}
+                                className="
+                                    mt-0.5
+                                    shrink-0
+                                "
+                            />
+
+                            <span>
+                                {error}
+                            </span>
+
                         </div>
                     )}
 
 
-                    {/* SUCCESS */}
+                    {/* =================================================
+                        SUCCESS
+                    ================================================= */}
 
                     {success && (
-
                         <div
                             className="
                                 mb-4
+                                flex
+                                items-start
+                                gap-2
                                 rounded-lg
                                 border
                                 border-green-200
@@ -1292,7 +1931,19 @@ const ComposeModal = ({
                                 text-green-700
                             "
                         >
-                            {success}
+
+                            <CheckCircle2
+                                size={18}
+                                className="
+                                    mt-0.5
+                                    shrink-0
+                                "
+                            />
+
+                            <span>
+                                {success}
+                            </span>
+
                         </div>
                     )}
 
@@ -1301,7 +1952,11 @@ const ComposeModal = ({
                         TO
                     ================================================= */}
 
-                    <div className="mb-3">
+                    <div
+                        className="
+                            mb-3
+                        "
+                    >
 
                         <div
                             className="
@@ -1311,6 +1966,7 @@ const ComposeModal = ({
                                 gap-2
                                 rounded-lg
                                 border
+                                border-gray-200
                                 px-3
                                 py-2
                             "
@@ -1330,7 +1986,9 @@ const ComposeModal = ({
                             {/* SELECTED RECIPIENTS */}
 
                             {to.map(
-                                (employee) => (
+                                (
+                                    employee
+                                ) => (
 
                                     <div
                                         key={
@@ -1350,13 +2008,46 @@ const ComposeModal = ({
                                         "
                                     >
 
-                                        <div className="flex min-w-0 flex-col leading-tight">
-                                            <span className="max-w-[220px] truncate text-xs font-semibold text-gray-900">
-                                                {getEmployeeName(employee)}
+                                        <div
+                                            className="
+                                                flex
+                                                min-w-0
+                                                flex-col
+                                                leading-tight
+                                            "
+                                        >
+
+                                            <span
+                                                className="
+                                                    max-w-[220px]
+                                                    truncate
+                                                    text-xs
+                                                    font-semibold
+                                                    text-gray-900
+                                                "
+                                            >
+                                                {
+                                                    getEmployeeName(
+                                                        employee
+                                                    )
+                                                }
                                             </span>
-                                            <span className="max-w-[220px] truncate text-[10px] text-gray-500">
-                                                {getEmployeeEmail(employee)}
+
+                                            <span
+                                                className="
+                                                    max-w-[220px]
+                                                    truncate
+                                                    text-[10px]
+                                                    text-gray-500
+                                                "
+                                            >
+                                                {
+                                                    getEmployeeEmail(
+                                                        employee
+                                                    )
+                                                }
                                             </span>
+
                                         </div>
 
 
@@ -1369,55 +2060,89 @@ const ComposeModal = ({
                                                 )
                                             }
                                             className="
+                                                ml-1
+                                                rounded-full
+                                                p-0.5
                                                 text-gray-500
+                                                hover:bg-gray-200
                                                 hover:text-red-500
                                             "
+                                            title="Remove recipient"
                                         >
-                                            ×
+                                            <X
+                                                size={13}
+                                            />
                                         </button>
 
                                     </div>
-
                                 )
                             )}
 
 
                             {/* SEARCH */}
 
-                            <input
-                                value={
-                                    recipientMode === "to"
-                                        ? recipientSearch
-                                        : ""
-                                }
-                                onFocus={() =>
-                                    setRecipientMode("to")
-                                }
-                                onChange={(event) =>
-                                    setRecipientSearch(
-                                        event.target.value
-                                    )
-                                }
-                                placeholder={
-                                    to.length
-                                        ? "Search another recipient..."
-                                        : "Search recipient..."
-                                }
+                            <div
                                 className="
+                                    flex
                                     min-w-[180px]
                                     flex-1
-                                    border-0
-                                    outline-none
-                                    text-sm
+                                    items-center
+                                    gap-2
                                 "
-                            />
+                            >
+
+                                <Search
+                                    size={15}
+                                    className="
+                                        shrink-0
+                                        text-gray-400
+                                    "
+                                />
+
+                                <input
+                                    value={
+                                        recipientMode ===
+                                        "to"
+                                            ? recipientSearch
+                                            : ""
+                                    }
+                                    onFocus={() => {
+
+                                        setRecipientMode(
+                                            "to"
+                                        );
+
+                                    }}
+                                    onChange={(event) =>
+                                        setRecipientSearch(
+                                            event.target.value
+                                        )
+                                    }
+                                    placeholder={
+                                        to.length
+                                            ? "Search another recipient..."
+                                            : "Search recipient..."
+                                    }
+                                    className="
+                                        min-w-0
+                                        flex-1
+                                        border-0
+                                        bg-transparent
+                                        py-1
+                                        text-sm
+                                        outline-none
+                                    "
+                                />
+
+                            </div>
 
                         </div>
 
 
-                        {/* TO SEARCH RESULTS */}
+                        {/* TO SEARCH */}
 
-                        {recipientMode === "to" &&
+                        {recipientMode ===
+                            "to" &&
                             recipientSearch.trim() && (
 
                                 <RecipientDropdown
@@ -1431,7 +2156,6 @@ const ComposeModal = ({
                                         addRecipient
                                     }
                                 />
-
                             )}
 
                     </div>
@@ -1462,11 +2186,9 @@ const ComposeModal = ({
                                 hover:text-gray-900
                             "
                         >
-                            {
-                                showCc
-                                    ? "Hide CC"
-                                    : "Add CC"
-                            }
+                            {showCc
+                                ? "Hide CC"
+                                : "Add CC"}
                         </button>
 
 
@@ -1482,11 +2204,9 @@ const ComposeModal = ({
                                 hover:text-gray-900
                             "
                         >
-                            {
-                                showBcc
-                                    ? "Hide BCC"
-                                    : "Add BCC"
-                            }
+                            {showBcc
+                                ? "Hide BCC"
+                                : "Add BCC"}
                         </button>
 
                     </div>
@@ -1497,17 +2217,18 @@ const ComposeModal = ({
                     ================================================= */}
 
                     {showCc && (
-
                         <RecipientField
                             label="CC"
                             recipients={cc}
                             search={
-                                recipientMode === "cc"
+                                recipientMode ===
+                                "cc"
                                     ? recipientSearch
                                     : ""
                             }
                             employees={
-                                recipientMode === "cc"
+                                recipientMode ===
+                                "cc"
                                     ? filteredEmployees
                                     : []
                             }
@@ -1530,20 +2251,24 @@ const ComposeModal = ({
                             onSelect={
                                 addRecipient
                             }
-                            onRemove={
-                                (employee) =>
-                                    removeRecipient(
-                                        employee,
-                                        "cc"
-                                    )
+                            onRemove={(
+                                employee
+                            ) =>
+                                removeRecipient(
+                                    employee,
+                                    "cc"
+                                )
                             }
                             getId={
                                 getEmployeeId
                             }
-                            getName={getEmployeeName}
-                            getEmail={getEmployeeEmail}
+                            getName={
+                                getEmployeeName
+                            }
+                            getEmail={
+                                getEmployeeEmail
+                            }
                         />
-
                     )}
 
 
@@ -1552,17 +2277,18 @@ const ComposeModal = ({
                     ================================================= */}
 
                     {showBcc && (
-
                         <RecipientField
                             label="BCC"
                             recipients={bcc}
                             search={
-                                recipientMode === "bcc"
+                                recipientMode ===
+                                "bcc"
                                     ? recipientSearch
                                     : ""
                             }
                             employees={
-                                recipientMode === "bcc"
+                                recipientMode ===
+                                "bcc"
                                     ? filteredEmployees
                                     : []
                             }
@@ -1585,20 +2311,24 @@ const ComposeModal = ({
                             onSelect={
                                 addRecipient
                             }
-                            onRemove={
-                                (employee) =>
-                                    removeRecipient(
-                                        employee,
-                                        "bcc"
-                                    )
+                            onRemove={(
+                                employee
+                            ) =>
+                                removeRecipient(
+                                    employee,
+                                    "bcc"
+                                )
                             }
                             getId={
                                 getEmployeeId
                             }
-                            getName={getEmployeeName}
-                            getEmail={getEmployeeEmail}
+                            getName={
+                                getEmployeeName
+                            }
+                            getEmail={
+                                getEmployeeEmail
+                            }
                         />
-
                     )}
 
 
@@ -1619,11 +2349,13 @@ const ComposeModal = ({
                             mb-4
                             w-full
                             border-b
+                            border-gray-200
                             px-1
                             py-3
                             text-base
                             outline-none
-                            focus:border-gray-500
+                            placeholder:text-gray-400
+                            focus:border-indigo-500
                         "
                     />
 
@@ -1646,11 +2378,14 @@ const ComposeModal = ({
                             resize-none
                             rounded-lg
                             border
+                            border-gray-200
                             p-4
                             text-sm
                             outline-none
+                            placeholder:text-gray-400
+                            focus:border-indigo-500
                             focus:ring-2
-                            focus:ring-gray-200
+                            focus:ring-indigo-100
                         "
                     />
 
@@ -1669,14 +2404,21 @@ const ComposeModal = ({
                         >
 
                             {attachments.map(
-                                (file, index) => (
+                                (
+                                    file,
+                                    index
+                                ) => (
 
                                     <div
-                                        key={`${file.name}-${index}`}
+                                        key={`${getAttachmentName(
+                                            file,
+                                            index
+                                        )}-${index}`}
                                         className="
                                             flex
                                             items-center
                                             justify-between
+                                            gap-3
                                             rounded-lg
                                             bg-gray-50
                                             px-3
@@ -1687,31 +2429,75 @@ const ComposeModal = ({
 
                                         <div
                                             className="
+                                                flex
                                                 min-w-0
+                                                items-center
+                                                gap-3
                                             "
                                         >
 
-                                            <p
+                                            <div
                                                 className="
-                                                    truncate
-                                                    font-medium
+                                                    flex
+                                                    h-9
+                                                    w-9
+                                                    shrink-0
+                                                    items-center
+                                                    justify-center
+                                                    rounded-lg
+                                                    bg-indigo-50
+                                                    text-indigo-600
                                                 "
                                             >
-                                                {file.name}
-                                            </p>
+                                                <FileText
+                                                    size={17}
+                                                />
+                                            </div>
 
-                                            <p
+
+                                            <div
                                                 className="
-                                                    text-xs
-                                                    text-gray-500
+                                                    min-w-0
                                                 "
                                             >
-                                                {(
-                                                    file.size /
-                                                    1024
-                                                ).toFixed(1)}
-                                                {" "}KB
-                                            </p>
+
+                                                <p
+                                                    className="
+                                                        truncate
+                                                        font-medium
+                                                        text-gray-800
+                                                    "
+                                                    title={
+                                                        getAttachmentName(
+                                                            file,
+                                                            index
+                                                        )
+                                                    }
+                                                >
+                                                    {
+                                                        getAttachmentName(
+                                                            file,
+                                                            index
+                                                        )
+                                                    }
+                                                </p>
+
+
+                                                <p
+                                                    className="
+                                                        text-xs
+                                                        text-gray-500
+                                                    "
+                                                >
+                                                    {
+                                                        getAttachmentSize(
+                                                            file
+                                                        ) ||
+                                                        "Attachment"
+                                                    }
+                                                </p>
+
+                                            </div>
 
                                         </div>
 
@@ -1724,20 +2510,25 @@ const ComposeModal = ({
                                                 )
                                             }
                                             className="
-                                                ml-3
-                                                text-red-500
+                                                shrink-0
+                                                rounded-lg
+                                                p-1.5
+                                                text-gray-400
+                                                hover:bg-red-50
+                                                hover:text-red-500
                                             "
+                                            title="Remove attachment"
                                         >
-                                            Remove
+                                            <Trash2
+                                                size={16}
+                                            />
                                         </button>
 
                                     </div>
-
                                 )
                             )}
 
                         </div>
-
                     )}
 
                 </div>
@@ -1750,11 +2541,13 @@ const ComposeModal = ({
                 <div
                     className="
                         flex
+                        shrink-0
                         flex-wrap
                         items-center
                         justify-between
                         gap-3
                         border-t
+                        border-gray-200
                         px-5
                         py-4
                     "
@@ -1764,17 +2557,27 @@ const ComposeModal = ({
 
                     <label
                         className="
+                            inline-flex
                             cursor-pointer
+                            items-center
+                            gap-2
                             rounded-lg
                             border
+                            border-gray-200
                             px-4
                             py-2
                             text-sm
+                            text-gray-700
+                            transition
                             hover:bg-gray-50
                         "
                     >
 
-                        📎 Attach
+                        <Paperclip
+                            size={16}
+                        />
+
+                        Attach
 
                         <input
                             type="file"
@@ -1793,9 +2596,47 @@ const ComposeModal = ({
                     <div
                         className="
                             flex
+                            items-center
                             gap-2
                         "
                     >
+
+                        {/* CLOSE */}
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleClose
+                            }
+                            disabled={
+                                sending ||
+                                savingDraft
+                            }
+                            className="
+                                flex
+                                items-center
+                                gap-2
+                                rounded-lg
+                                border
+                                border-gray-200
+                                px-4
+                                py-2
+                                text-sm
+                                text-gray-600
+                                transition
+                                hover:bg-gray-50
+                                disabled:opacity-50
+                            "
+                        >
+                            <X
+                                size={15}
+                            />
+
+                            Close
+                        </button>
+
+
+                        {/* SAVE DRAFT */}
 
                         <button
                             type="button"
@@ -1807,22 +2648,44 @@ const ComposeModal = ({
                                 sending
                             }
                             className="
+                                flex
+                                items-center
+                                gap-2
                                 rounded-lg
                                 border
+                                border-gray-200
                                 px-4
                                 py-2
                                 text-sm
+                                text-gray-700
+                                transition
                                 hover:bg-gray-50
+                                disabled:cursor-not-allowed
                                 disabled:opacity-50
                             "
                         >
-                            {
-                                savingDraft
-                                    ? "Saving..."
-                                    : "Save Draft"
-                            }
+
+                            {savingDraft ? (
+                                <Loader2
+                                    size={15}
+                                    className="animate-spin"
+                                />
+                            ) : (
+                                <Save
+                                    size={15}
+                                />
+                            )}
+
+                            {savingDraft
+                                ? "Saving..."
+                                : isEditingDraft
+                                    ? "Update Draft"
+                                    : "Save Draft"}
+
                         </button>
 
+
+                        {/* SEND */}
 
                         <button
                             type="button"
@@ -1834,22 +2697,40 @@ const ComposeModal = ({
                                 savingDraft
                             }
                             className="
+                                flex
+                                items-center
+                                gap-2
                                 rounded-lg
-                                bg-gray-900
+                                bg-indigo-600
                                 px-5
                                 py-2
                                 text-sm
                                 font-medium
                                 text-white
-                                hover:bg-gray-800
+                                transition
+                                hover:bg-indigo-700
+                                disabled:cursor-not-allowed
                                 disabled:opacity-50
                             "
                         >
-                            {
-                                sending
-                                    ? "Sending..."
-                                    : "Send"
-                            }
+
+                            {sending ? (
+                                <Loader2
+                                    size={15}
+                                    className="animate-spin"
+                                />
+                            ) : (
+                                <Send
+                                    size={15}
+                                />
+                            )}
+
+                            {sending
+                                ? "Sending..."
+                                : isEditingDraft
+                                    ? "Send"
+                                    : "Send"}
+
                         </button>
 
                     </div>
@@ -1870,18 +2751,18 @@ const ComposeModal = ({
 const RecipientDropdown = ({
     loading,
     employees,
-    onSelect
+    onSelect,
 }) => {
 
     if (loading) {
 
         return (
-
             <div
                 className="
                     mt-1
                     rounded-lg
                     border
+                    border-gray-200
                     bg-white
                     p-3
                     text-sm
@@ -1889,9 +2770,21 @@ const RecipientDropdown = ({
                     shadow-lg
                 "
             >
-                Searching employees...
-            </div>
+                <div
+                    className="
+                        flex
+                        items-center
+                        gap-2
+                    "
+                >
+                    <Loader2
+                        size={15}
+                        className="animate-spin"
+                    />
 
+                    Searching employees...
+                </div>
+            </div>
         );
     }
 
@@ -1899,12 +2792,12 @@ const RecipientDropdown = ({
     if (!employees.length) {
 
         return (
-
             <div
                 className="
                     mt-1
                     rounded-lg
                     border
+                    border-gray-200
                     bg-white
                     p-3
                     text-sm
@@ -1914,13 +2807,11 @@ const RecipientDropdown = ({
             >
                 No employees found.
             </div>
-
         );
     }
 
 
     return (
-
         <div
             className="
                 mt-1
@@ -1928,18 +2819,21 @@ const RecipientDropdown = ({
                 overflow-y-auto
                 rounded-lg
                 border
+                border-gray-200
                 bg-white
                 shadow-lg
             "
         >
 
             {employees.map(
-                (employee) => (
+                (
+                    employee
+                ) => (
 
                     <button
                         key={
-                            employee._id ||
-                            employee.id
+                            employee?._id ||
+                            employee?.id
                         }
                         type="button"
                         onClick={() =>
@@ -1955,6 +2849,7 @@ const RecipientDropdown = ({
                             px-4
                             py-3
                             text-left
+                            transition
                             hover:bg-gray-50
                         "
                     >
@@ -1970,14 +2865,15 @@ const RecipientDropdown = ({
                                 items-center
                                 justify-center
                                 rounded-full
-                                bg-gray-200
+                                bg-indigo-100
                                 text-sm
                                 font-semibold
+                                text-indigo-700
                             "
                         >
                             {(
-                                employee.name ||
-                                employee.email ||
+                                employee?.name ||
+                                employee?.email ||
                                 "U"
                             )
                                 .charAt(0)
@@ -1985,11 +2881,12 @@ const RecipientDropdown = ({
                         </div>
 
 
-                        {/* EMPLOYEE INFO */}
+                        {/* EMPLOYEE */}
 
                         <div
                             className="
                                 min-w-0
+                                flex-1
                             "
                         >
 
@@ -2002,10 +2899,11 @@ const RecipientDropdown = ({
                                 "
                             >
                                 {
-                                    employee.name ||
-                                    employee.email
+                                    employee?.name ||
+                                    employee?.email
                                 }
                             </p>
+
 
                             <p
                                 className="
@@ -2015,19 +2913,26 @@ const RecipientDropdown = ({
                                 "
                             >
                                 {
-                                    employee.email
+                                    employee?.email
                                 }
                             </p>
 
                         </div>
 
-                    </button>
 
+                        <UserPlus
+                            size={16}
+                            className="
+                                shrink-0
+                                text-gray-400
+                            "
+                        />
+
+                    </button>
                 )
             )}
 
         </div>
-
     );
 };
 
@@ -2048,12 +2953,16 @@ const RecipientField = ({
     onRemove,
     getId,
     getName,
-    getEmail
+    getEmail,
 }) => {
 
     return (
 
-        <div className="mb-3">
+        <div
+            className="
+                mb-3
+            "
+        >
 
             <div
                 className="
@@ -2063,6 +2972,7 @@ const RecipientField = ({
                     gap-2
                     rounded-lg
                     border
+                    border-gray-200
                     px-3
                     py-2
                 "
@@ -2082,7 +2992,9 @@ const RecipientField = ({
                 {/* SELECTED */}
 
                 {recipients.map(
-                    (employee) => (
+                    (
+                        employee
+                    ) => (
 
                         <div
                             key={
@@ -2102,14 +3014,49 @@ const RecipientField = ({
                             "
                         >
 
-                            <div className="flex min-w-0 flex-col leading-tight">
-                                <span className="max-w-[220px] truncate text-xs font-semibold text-gray-900">
-                                    {getName(employee)}
+                            <div
+                                className="
+                                    flex
+                                    min-w-0
+                                    flex-col
+                                    leading-tight
+                                "
+                            >
+
+                                <span
+                                    className="
+                                        max-w-[220px]
+                                        truncate
+                                        text-xs
+                                        font-semibold
+                                        text-gray-900
+                                    "
+                                >
+                                    {
+                                        getName(
+                                            employee
+                                        )
+                                    }
                                 </span>
-                                <span className="max-w-[220px] truncate text-[10px] text-gray-500">
-                                    {getEmail ? getEmail(employee) : employee?.email || ""}
+
+
+                                <span
+                                    className="
+                                        max-w-[220px]
+                                        truncate
+                                        text-[10px]
+                                        text-gray-500
+                                    "
+                                >
+                                    {
+                                        getEmail(
+                                            employee
+                                        )
+                                    }
                                 </span>
+
                             </div>
+
 
                             <button
                                 type="button"
@@ -2119,54 +3066,91 @@ const RecipientField = ({
                                     )
                                 }
                                 className="
+                                    ml-1
+                                    rounded-full
+                                    p-0.5
                                     text-gray-500
+                                    hover:bg-gray-200
                                     hover:text-red-500
                                 "
+                                title={`Remove from ${label}`}
                             >
-                                ×
+                                <X
+                                    size={13}
+                                />
                             </button>
 
                         </div>
-
                     )
                 )}
 
 
                 {/* SEARCH */}
 
-                <input
-                    value={search}
-                    onFocus={onFocus}
-                    onChange={(event) =>
-                        onSearch(
-                            event.target.value
-                        )
-                    }
-                    placeholder={
-                        `Search ${label} recipient...`
-                    }
+                <div
                     className="
+                        flex
                         min-w-[180px]
                         flex-1
-                        border-0
-                        outline-none
-                        text-sm
+                        items-center
+                        gap-2
                     "
-                />
+                >
+
+                    <Search
+                        size={15}
+                        className="
+                            shrink-0
+                            text-gray-400
+                        "
+                    />
+
+                    <input
+                        value={search}
+                        onFocus={
+                            onFocus
+                        }
+                        onChange={(
+                            event
+                        ) =>
+                            onSearch(
+                                event.target.value
+                            )
+                        }
+                        placeholder={
+                            `Search ${label} recipient...`
+                        }
+                        className="
+                            min-w-0
+                            flex-1
+                            border-0
+                            bg-transparent
+                            py-1
+                            text-sm
+                            outline-none
+                        "
+                    />
+
+                </div>
 
             </div>
 
 
-            {/* SEARCH RESULTS ONLY */}
+            {/* SEARCH RESULTS */}
 
             {search.trim() && (
 
                 <RecipientDropdown
-                    loading={loading}
-                    employees={employees}
-                    onSelect={onSelect}
+                    loading={
+                        loading
+                    }
+                    employees={
+                        employees
+                    }
+                    onSelect={
+                        onSelect
+                    }
                 />
-
             )}
 
         </div>

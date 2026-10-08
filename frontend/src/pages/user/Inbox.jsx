@@ -5,10 +5,16 @@ import React, {
 } from "react";
 
 import {
+    useNavigate,
+} from "react-router-dom";
+
+import {
     getMessagesApi,
     getMessageByIdApi,
     markMessageAsReadApi,
     moveMessageToTrashApi,
+    getDraftsApi,
+    getTrashApi,
 } from "../../api/messageApi";
 
 import MessageViewer from "../../components/mail/MessageViewer";
@@ -17,13 +23,45 @@ import MessageViewer from "../../components/mail/MessageViewer";
 const LIMIT = 50;
 
 
+/* ================================================================
+   FOLDER CONFIG
+================================================================ */
+
+const FOLDERS = [
+    {
+        key: "inbox",
+        label: "Inbox",
+        icon: "📥",
+    },
+    {
+        key: "sent",
+        label: "Sent",
+        icon: "📤",
+    },
+    {
+        key: "drafts",
+        label: "Drafts",
+        icon: "📝",
+    },
+    {
+        key: "trash",
+        label: "Trash",
+        icon: "🗑️",
+    },
+];
+
+
 const Inbox = () => {
+
+    const navigate = useNavigate();
+
 
     // ============================================================
     // STATE
     // ============================================================
 
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] =
+        useState([]);
 
     const [selectedMessage, setSelectedMessage] =
         useState(null);
@@ -59,173 +97,630 @@ const Inbox = () => {
 
 
     // ============================================================
-    // LOAD INBOX
+    // FOLDER BADGES
     // ============================================================
 
-    const loadInbox = useCallback(
-        async (
-            currentPage = 1,
-            isRefresh = false
-        ) => {
-
-            try {
-
-                setError("");
-
-                if (isRefresh) {
-                    setRefreshing(true);
-                } else {
-                    setLoading(true);
-                }
+    const [folderCounts, setFolderCounts] =
+        useState({
+            inbox: 0,
+            sent: 0,
+            drafts: 0,
+            trash: 0,
+        });
 
 
-                const response =
-                    await getMessagesApi({
-                        folder: "inbox",
-                        page: currentPage,
-                        limit: LIMIT,
+    const [unreadCounts, setUnreadCounts] =
+        useState({
+            inbox: 0,
+            sent: 0,
+            drafts: 0,
+            trash: 0,
+        });
+
+
+    const [folderCountsLoading, setFolderCountsLoading] =
+        useState(false);
+
+
+    // ============================================================
+    // RESPONSE COUNT HELPER
+    // ============================================================
+
+    const getResponseTotal = (
+        response,
+        fallbackLength = 0
+    ) => {
+
+        if (
+            response?.pagination?.total !==
+            undefined
+        ) {
+            return Number(
+                response.pagination.total
+            ) || 0;
+        }
+
+
+        if (
+            response?.total !==
+            undefined
+        ) {
+            return Number(
+                response.total
+            ) || 0;
+        }
+
+
+        if (
+            response?.data?.pagination?.total !==
+            undefined
+        ) {
+            return Number(
+                response.data.pagination.total
+            ) || 0;
+        }
+
+
+        if (
+            response?.data?.total !==
+            undefined
+        ) {
+            return Number(
+                response.data.total
+            ) || 0;
+        }
+
+
+        const data =
+            response?.messages ||
+            response?.data ||
+            [];
+
+
+        if (
+            Array.isArray(data)
+        ) {
+            return data.length;
+        }
+
+
+        return fallbackLength;
+    };
+
+
+    // ============================================================
+    // RESPONSE MESSAGES HELPER
+    // ============================================================
+
+    const getResponseMessages = (
+        response
+    ) => {
+
+        const data =
+            response?.messages ||
+            response?.data ||
+            [];
+
+
+        return Array.isArray(data)
+            ? data
+            : [];
+
+    };
+
+
+    // ============================================================
+    // LOAD FOLDER COUNTS
+    // ============================================================
+
+    const loadFolderCounts =
+        useCallback(
+            async () => {
+
+                try {
+
+                    setFolderCountsLoading(
+                        true
+                    );
+
+
+                    /*
+                     * Load all folder counts
+                     * independently.
+                     *
+                     * If one API fails, the
+                     * remaining counts still work.
+                     */
+
+                    const results =
+                        await Promise.allSettled(
+                            [
+
+                                // -------------------------
+                                // INBOX
+                                // -------------------------
+
+                                getMessagesApi({
+                                    folder: "inbox",
+                                    page: 1,
+                                    limit: 1,
+                                }),
+
+                                // -------------------------
+                                // SENT
+                                // -------------------------
+
+                                getMessagesApi({
+                                    folder: "sent",
+                                    page: 1,
+                                    limit: 1,
+                                }),
+
+                                // -------------------------
+                                // DRAFTS
+                                // -------------------------
+
+                                typeof getDraftsApi ===
+                                "function"
+                                    ? getDraftsApi({
+                                          page: 1,
+                                          limit: 1,
+                                      })
+                                    : Promise.resolve(
+                                          null
+                                      ),
+
+                                // -------------------------
+                                // TRASH
+                                // -------------------------
+
+                                typeof getTrashApi ===
+                                "function"
+                                    ? getTrashApi({
+                                          page: 1,
+                                          limit: 1,
+                                      })
+                                    : Promise.resolve(
+                                          null
+                                      ),
+
+                            ]
+                        );
+
+
+                    // ==================================================
+                    // INBOX
+                    // ==================================================
+
+                    let inboxTotal = 0;
+
+                    let inboxUnread = 0;
+
+
+                    if (
+                        results[0]?.status ===
+                        "fulfilled"
+                    ) {
+
+                        const response =
+                            results[0].value;
+
+
+                        const data =
+                            getResponseMessages(
+                                response
+                            );
+
+
+                        inboxTotal =
+                            getResponseTotal(
+                                response,
+                                data.length
+                            );
+
+
+                        /*
+                         * Some APIs return only
+                         * one record when limit=1,
+                         * so unread count cannot
+                         * reliably be calculated
+                         * from this request.
+                         *
+                         * Use backend unreadCount
+                         * when available.
+                         */
+
+                        inboxUnread =
+                            Number(
+                                response?.unreadCount ??
+                                response?.pagination?.unreadCount ??
+                                response?.data?.unreadCount ??
+                                0
+                            ) || 0;
+
+                    }
+
+
+                    // ==================================================
+                    // SENT
+                    // ==================================================
+
+                    let sentTotal = 0;
+
+
+                    if (
+                        results[1]?.status ===
+                        "fulfilled"
+                    ) {
+
+                        const response =
+                            results[1].value;
+
+
+                        const data =
+                            getResponseMessages(
+                                response
+                            );
+
+
+                        sentTotal =
+                            getResponseTotal(
+                                response,
+                                data.length
+                            );
+
+                    }
+
+
+                    // ==================================================
+                    // DRAFTS
+                    // ==================================================
+
+                    let draftsTotal = 0;
+
+
+                    if (
+                        results[2]?.status ===
+                        "fulfilled"
+                    ) {
+
+                        const response =
+                            results[2].value;
+
+
+                        const data =
+                            getResponseMessages(
+                                response
+                            );
+
+
+                        draftsTotal =
+                            getResponseTotal(
+                                response,
+                                data.length
+                            );
+
+                    }
+
+
+                    // ==================================================
+                    // TRASH
+                    // ==================================================
+
+                    let trashTotal = 0;
+
+
+                    if (
+                        results[3]?.status ===
+                        "fulfilled"
+                    ) {
+
+                        const response =
+                            results[3].value;
+
+
+                        const data =
+                            getResponseMessages(
+                                response
+                            );
+
+
+                        trashTotal =
+                            getResponseTotal(
+                                response,
+                                data.length
+                            );
+
+                    }
+
+
+                    // ==================================================
+                    // SET COUNTS
+                    // ==================================================
+
+                    setFolderCounts({
+
+                        inbox:
+                            inboxTotal,
+
+                        sent:
+                            sentTotal,
+
+                        drafts:
+                            draftsTotal,
+
+                        trash:
+                            trashTotal,
+
                     });
 
 
-                if (!response?.success) {
+                    setUnreadCounts({
 
-                    throw new Error(
-                        response?.message ||
-                        "Unable to load inbox."
+                        inbox:
+                            inboxUnread,
+
+                        sent: 0,
+
+                        drafts: 0,
+
+                        trash: 0,
+
+                    });
+
+
+                } catch (err) {
+
+                    console.error(
+                        "Folder count error:",
+                        err
+                    );
+
+                } finally {
+
+                    setFolderCountsLoading(
+                        false
                     );
 
                 }
 
-
-                const responseMessages =
-                    response?.messages ||
-                    response?.data ||
-                    [];
+            },
+            []
+        );
 
 
-                const safeMessages =
-                    Array.isArray(
-                        responseMessages
-                    )
-                        ? responseMessages
-                        : [];
+    // ============================================================
+    // LOAD INBOX
+    // ============================================================
+
+    const loadInbox =
+        useCallback(
+            async (
+                currentPage = 1,
+                isRefresh = false
+            ) => {
+
+                try {
+
+                    setError("");
 
 
-                setMessages(
-                    safeMessages
-                );
+                    if (
+                        isRefresh
+                    ) {
 
-
-                // ------------------------------------------------
-                // Pagination
-                // ------------------------------------------------
-
-                if (
-                    response?.pagination
-                ) {
-
-                    setPagination({
-
-                        page:
-                            Number(
-                                response.pagination.page
-                            ) ||
-                            currentPage,
-
-                        limit:
-                            Number(
-                                response.pagination.limit
-                            ) ||
-                            LIMIT,
-
-                        total:
-                            Number(
-                                response.pagination.total
-                            ) ||
-                            safeMessages.length,
-
-                        pages:
-                            Number(
-                                response.pagination.pages
-                            ) ||
-                            1,
-
-                    });
-
-                } else {
-
-                    const total =
-                        Number(
-                            response?.total
-                        ) ||
-                        safeMessages.length;
-
-
-                    const pages =
-                        Number(
-                            response?.pages
-                        ) ||
-                        Number(
-                            response?.totalPages
-                        ) ||
-                        Math.max(
-                            1,
-                            Math.ceil(
-                                total / LIMIT
-                            )
+                        setRefreshing(
+                            true
                         );
 
+                    } else {
 
-                    setPagination({
+                        setLoading(
+                            true
+                        );
 
-                        page:
-                            currentPage,
+                    }
 
-                        limit:
-                            LIMIT,
 
-                        total,
+                    const response =
+                        await getMessagesApi({
+                            folder: "inbox",
+                            page: currentPage,
+                            limit: LIMIT,
+                        });
 
-                        pages,
 
-                    });
+                    if (
+                        !response?.success
+                    ) {
+
+                        throw new Error(
+                            response?.message ||
+                            "Unable to load inbox."
+                        );
+
+                    }
+
+
+                    const responseMessages =
+                        response?.messages ||
+                        response?.data ||
+                        [];
+
+
+                    const safeMessages =
+                        Array.isArray(
+                            responseMessages
+                        )
+                            ? responseMessages
+                            : [];
+
+
+                    setMessages(
+                        safeMessages
+                    );
+
+
+                    // ==================================================
+                    // PAGINATION
+                    // ==================================================
+
+                    if (
+                        response?.pagination
+                    ) {
+
+                        setPagination({
+
+                            page:
+                                Number(
+                                    response.pagination.page
+                                ) ||
+                                currentPage,
+
+                            limit:
+                                Number(
+                                    response.pagination.limit
+                                ) ||
+                                LIMIT,
+
+                            total:
+                                Number(
+                                    response.pagination.total
+                                ) ||
+                                safeMessages.length,
+
+                            pages:
+                                Number(
+                                    response.pagination.pages
+                                ) ||
+                                1,
+
+                        });
+
+                    } else {
+
+                        const total =
+                            Number(
+                                response?.total
+                            ) ||
+                            safeMessages.length;
+
+
+                        const pages =
+                            Number(
+                                response?.pages
+                            ) ||
+                            Number(
+                                response?.totalPages
+                            ) ||
+                            Math.max(
+                                1,
+                                Math.ceil(
+                                    total /
+                                    LIMIT
+                                )
+                            );
+
+
+                        setPagination({
+
+                            page:
+                                currentPage,
+
+                            limit:
+                                LIMIT,
+
+                            total,
+
+                            pages,
+
+                        });
+
+                    }
+
+
+                    setPage(
+                        currentPage
+                    );
+
+
+                    // ==================================================
+                    // UPDATE INBOX BADGE
+                    // ==================================================
+
+                    const unread =
+                        safeMessages.filter(
+                            (message) =>
+                                !message?.isRead
+                        ).length;
+
+
+                    setFolderCounts(
+                        (previous) => ({
+                            ...previous,
+                            inbox:
+                                response?.pagination?.total ??
+                                response?.total ??
+                                safeMessages.length,
+                        })
+                    );
+
+
+                    /*
+                     * Prefer backend unread count
+                     * if available.
+                     */
+
+                    const backendUnread =
+                        Number(
+                            response?.unreadCount ??
+                            response?.pagination?.unreadCount ??
+                            response?.data?.unreadCount ??
+                            unread
+                        ) || 0;
+
+
+                    setUnreadCounts(
+                        (previous) => ({
+                            ...previous,
+                            inbox:
+                                backendUnread,
+                        })
+                    );
+
+
+                } catch (err) {
+
+                    console.error(
+                        "Inbox loading error:",
+                        err
+                    );
+
+
+                    setError(
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Unable to load inbox."
+                    );
+
+
+                    setMessages([]);
+
+                } finally {
+
+                    setLoading(
+                        false
+                    );
+
+                    setRefreshing(
+                        false
+                    );
 
                 }
 
-
-                setPage(
-                    currentPage
-                );
-
-
-            } catch (err) {
-
-                console.error(
-                    "Inbox loading error:",
-                    err
-                );
-
-
-                setError(
-                    err?.response?.data?.message ||
-                    err?.message ||
-                    "Unable to load inbox."
-                );
-
-
-                setMessages([]);
-
-            } finally {
-
-                setLoading(false);
-
-                setRefreshing(false);
-
-            }
-
-        },
-        []
-    );
+            },
+            []
+        );
 
 
     // ============================================================
@@ -236,7 +731,12 @@ const Inbox = () => {
 
         loadInbox(1);
 
-    }, [loadInbox]);
+        loadFolderCounts();
+
+    }, [
+        loadInbox,
+        loadFolderCounts,
+    ]);
 
 
     // ============================================================
@@ -244,10 +744,7 @@ const Inbox = () => {
     // ============================================================
 
     const unreadCount =
-        messages.filter(
-            (message) =>
-                !message?.isRead
-        ).length;
+        unreadCounts.inbox;
 
 
     // ============================================================
@@ -275,6 +772,44 @@ const Inbox = () => {
 
 
     // ============================================================
+    // FOLDER NAVIGATION
+    // ============================================================
+
+    const handleFolderChange = (
+        folder
+    ) => {
+
+        if (
+            folder ===
+            "inbox"
+        ) {
+
+            /*
+             * Already inside Inbox.
+             */
+
+            return;
+
+        }
+
+
+        setSelectedMessage(
+            null
+        );
+
+        setSelectedMessages([]);
+
+        setMessageError("");
+
+
+        navigate(
+            `/user/mail?Folder=${folder}`
+        );
+
+    };
+
+
+    // ============================================================
     // REFRESH
     // ============================================================
 
@@ -288,10 +823,13 @@ const Inbox = () => {
         }
 
 
-        loadInbox(
-            page,
-            true
-        );
+        Promise.all([
+            loadInbox(
+                page,
+                true
+            ),
+            loadFolderCounts(),
+        ]);
 
     };
 
@@ -301,7 +839,9 @@ const Inbox = () => {
     // ============================================================
 
     const handleSelectMessage =
-        async (message) => {
+        async (
+            message
+        ) => {
 
             if (
                 !message?._id
@@ -319,27 +859,17 @@ const Inbox = () => {
                 );
 
 
-                /*
-                 * Immediately display the message.
-                 * This makes the UI feel instant.
-                 */
-
                 setSelectedMessage(
                     message
                 );
 
 
-                /*
-                 * Remove checkbox selection
-                 * when opening a message.
-                 */
-
                 setSelectedMessages([]);
 
 
-                // ------------------------------------------------
+                // ==================================================
                 // MARK AS READ
-                // ------------------------------------------------
+                // ==================================================
 
                 if (
                     !message.isRead
@@ -366,6 +896,20 @@ const Inbox = () => {
                                 )
                         );
 
+
+                        setUnreadCounts(
+                            (previous) => ({
+                                ...previous,
+                                inbox:
+                                    Math.max(
+                                        0,
+                                        Number(
+                                            previous.inbox
+                                        ) - 1
+                                    ),
+                            })
+                        );
+
                     } catch (
                         readError
                     ) {
@@ -380,9 +924,9 @@ const Inbox = () => {
                 }
 
 
-                // ------------------------------------------------
+                // ==================================================
                 // GET FULL MESSAGE
-                // ------------------------------------------------
+                // ==================================================
 
                 if (
                     typeof getMessageByIdApi ===
@@ -554,7 +1098,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // MESSAGE SELECTED CHECK
+    // SELECTED CHECK
     // ============================================================
 
     const isSelected = (
@@ -608,39 +1152,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // SENDER EMAIL
-    // ============================================================
-
-    const getSenderEmail = (
-        message
-    ) => {
-
-        const sender =
-            message?.sender;
-
-
-        if (
-            !sender ||
-            typeof sender ===
-                "string"
-        ) {
-
-            return "";
-
-        }
-
-
-        return (
-            sender.email ||
-            sender.emailAddress ||
-            ""
-        );
-
-    };
-
-
-    // ============================================================
-    // SENDER INITIAL
+    // INITIAL
     // ============================================================
 
     const getInitial = (
@@ -648,7 +1160,9 @@ const Inbox = () => {
     ) => {
 
         return (
-            getSenderName(message)
+            getSenderName(
+                message
+            )
                 ?.charAt(0)
                 ?.toUpperCase() ||
             "U"
@@ -658,7 +1172,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // FORMAT DATE
+    // DATE
     // ============================================================
 
     const formatDate = (
@@ -689,12 +1203,10 @@ const Inbox = () => {
             new Date();
 
 
-        const isToday =
+        if (
             parsed.toDateString() ===
-            now.toDateString();
-
-
-        if (isToday) {
+            now.toDateString()
+        ) {
 
             return parsed.toLocaleTimeString(
                 "en-IN",
@@ -720,7 +1232,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // MESSAGE PREVIEW
+    // PREVIEW
     // ============================================================
 
     const getPreview = (
@@ -776,7 +1288,8 @@ const Inbox = () => {
 
             if (
                 response &&
-                response.success === false
+                response.success ===
+                    false
             ) {
 
                 throw new Error(
@@ -786,8 +1299,6 @@ const Inbox = () => {
 
             }
 
-
-            // Remove from inbox
 
             setMessages(
                 (previous) =>
@@ -799,8 +1310,6 @@ const Inbox = () => {
             );
 
 
-            // Remove from selection
-
             setSelectedMessages(
                 (previous) =>
                     previous.filter(
@@ -811,14 +1320,38 @@ const Inbox = () => {
             );
 
 
-            // Close full-screen viewer
-
             setSelectedMessage(
                 null
             );
 
 
+            setFolderCounts(
+                (previous) => ({
+                    ...previous,
+                    inbox:
+                        Math.max(
+                            0,
+                            Number(
+                                previous.inbox
+                            ) - 1
+                        ),
+                    trash:
+                        Number(
+                            previous.trash
+                        ) + 1,
+                })
+            );
+
+
             setMessageError("");
+
+
+            /*
+             * Get the exact current
+             * counts from backend.
+             */
+
+            loadFolderCounts();
 
         } catch (err) {
 
@@ -846,15 +1379,13 @@ const Inbox = () => {
     const handleMessageUpdated =
         async () => {
 
-            /*
-             * Refresh the inbox without
-             * opening the list beside the viewer.
-             */
-
-            await loadInbox(
-                page,
-                true
-            );
+            await Promise.all([
+                loadInbox(
+                    page,
+                    true
+                ),
+                loadFolderCounts(),
+            ]);
 
         };
 
@@ -902,7 +1433,8 @@ const Inbox = () => {
 
 
         if (
-            page >= totalPages ||
+            page >=
+                totalPages ||
             loading
         ) {
             return;
@@ -1019,7 +1551,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // LOADING SKELETON
+    // SKELETON
     // ============================================================
 
     const renderSkeletons = (
@@ -1035,11 +1567,9 @@ const Inbox = () => {
                 "
             >
 
-                {Array.from(
-                    {
-                        length: count,
-                    }
-                ).map(
+                {Array.from({
+                    length: count,
+                }).map(
                     (_, index) => (
 
                         <div
@@ -1063,6 +1593,7 @@ const Inbox = () => {
                                 "
                             />
 
+
                             <div
                                 className="
                                     h-10
@@ -1072,6 +1603,7 @@ const Inbox = () => {
                                     bg-gray-200
                                 "
                             />
+
 
                             <div
                                 className="
@@ -1134,7 +1666,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // EMPTY STATE
+    // EMPTY
     // ============================================================
 
     const renderEmptyState = () => {
@@ -1208,312 +1740,152 @@ const Inbox = () => {
 
 
     // ============================================================
-    // SELECTION TOOLBAR
+    // FOLDER NAVIGATION
     // ============================================================
 
-    const renderSelectionToolbar = () => {
+    const renderFolderNavigation =
+        () => {
 
-        if (
-            messages.length === 0
-        ) {
-            return null;
-        }
-
-
-        return (
-
-            <div
-                className="
-                    flex
-                    min-h-[54px]
-                    shrink-0
-                    items-center
-                    justify-between
-                    gap-3
-                    border-b
-                    border-gray-200
-                    bg-white
-                    px-3
-                    sm:px-4
-                "
-            >
+            return (
 
                 <div
                     className="
-                        flex
-                        min-w-0
-                        items-center
-                        gap-3
+                        shrink-0
+                        border-b
+                        border-gray-200
+                        bg-white
                     "
                 >
-
-                    <label
-                        className="
-                            flex
-                            shrink-0
-                            cursor-pointer
-                            select-none
-                            items-center
-                            gap-2
-                            text-xs
-                            text-gray-600
-                            sm:text-sm
-                        "
-                    >
-
-                        <input
-                            type="checkbox"
-                            checked={
-                                allSelected
-                            }
-                            ref={(
-                                element
-                            ) => {
-
-                                if (
-                                    element
-                                ) {
-
-                                    element.indeterminate =
-                                        partiallySelected;
-
-                                }
-
-                            }}
-                            onChange={
-                                handleSelectAll
-                            }
-                            className="
-                                h-4
-                                w-4
-                                cursor-pointer
-                                rounded
-                                border-gray-300
-                                text-blue-600
-                                focus:ring-2
-                                focus:ring-blue-500
-                            "
-                        />
-
-                        <span>
-                            Select All
-                        </span>
-
-                    </label>
-
-
-                    {selectedCount > 0 && (
-
-                        <span
-                            className="
-                                shrink-0
-                                rounded-full
-                                bg-blue-50
-                                px-2.5
-                                py-1
-                                text-[11px]
-                                font-semibold
-                                text-blue-600
-                                sm:text-xs
-                            "
-                        >
-                            {selectedCount} selected
-                        </span>
-
-                    )}
-
-                </div>
-
-
-                {selectedCount > 0 && (
-
-                    <button
-                        type="button"
-                        onClick={
-                            handleClearSelection
-                        }
-                        className="
-                            shrink-0
-                            rounded-lg
-                            px-2
-                            py-1
-                            text-xs
-                            font-medium
-                            text-gray-500
-                            transition
-                            hover:bg-red-50
-                            hover:text-red-600
-                        "
-                    >
-                        Clear
-                    </button>
-
-                )}
-
-            </div>
-
-        );
-
-    };
-
-
-    // ============================================================
-    // PAGINATION
-    // ============================================================
-
-    const renderPagination = () => {
-
-        if (
-            loading ||
-            messages.length === 0
-        ) {
-            return null;
-        }
-
-
-        const totalPages =
-            Number(
-                pagination.pages
-            ) || 1;
-
-
-        return (
-
-            <div
-                className="
-                    shrink-0
-                    border-t
-                    border-gray-200
-                    bg-white
-                    px-3
-                    py-3
-                    sm:px-4
-                "
-            >
-
-                <div
-                    className="
-                        flex
-                        items-center
-                        justify-between
-                        gap-2
-                    "
-                >
-
-                    <button
-                        type="button"
-                        onClick={
-                            handlePreviousPage
-                        }
-                        disabled={
-                            page <= 1
-                        }
-                        className="
-                            rounded-lg
-                            border
-                            border-gray-200
-                            px-3
-                            py-2
-                            text-xs
-                            text-gray-700
-                            transition
-                            hover:bg-gray-50
-                            disabled:cursor-not-allowed
-                            disabled:opacity-40
-                            sm:text-sm
-                        "
-                    >
-                        Previous
-                    </button>
-
 
                     <div
                         className="
-                            hidden
+                            flex
+                            w-full
                             items-center
                             gap-1
-                            sm:flex
+                            overflow-x-auto
+                            px-3
+                            py-2
+                            sm:gap-2
+                            sm:px-4
                         "
                     >
 
-                        {getPageNumbers().map(
-                            (
-                                pageNumber,
-                                index
-                            ) => {
+                        {FOLDERS.map(
+                            (folder) => {
 
-                                if (
-                                    pageNumber ===
-                                    "..."
-                                ) {
+                                const count =
+                                    Number(
+                                        folderCounts[
+                                            folder.key
+                                        ]
+                                    ) || 0;
 
-                                    return (
 
-                                        <span
-                                            key={
-                                                `dots-${index}`
-                                            }
-                                            className="
-                                                px-1
-                                                text-xs
-                                                text-gray-400
-                                            "
-                                        >
-                                            ...
-                                        </span>
+                                const unread =
+                                    Number(
+                                        unreadCounts[
+                                            folder.key
+                                        ]
+                                    ) || 0;
 
-                                    );
 
-                                }
+                                const active =
+                                    folder.key ===
+                                    "inbox";
 
 
                                 return (
 
                                     <button
                                         key={
-                                            pageNumber
+                                            folder.key
                                         }
                                         type="button"
-                                        onClick={() => {
-
-                                            if (
-                                                pageNumber ===
-                                                page
-                                            ) {
-                                                return;
-                                            }
-
-
-                                            setSelectedMessage(
-                                                null
-                                            );
-
-                                            setSelectedMessages(
-                                                []
-                                            );
-
-                                            loadInbox(
-                                                pageNumber
-                                            );
-
-                                        }}
+                                        onClick={() =>
+                                            handleFolderChange(
+                                                folder.key
+                                            )
+                                        }
                                         className={`
-                                            h-8
-                                            w-8
-                                            rounded-md
-                                            text-xs
+                                            flex
+                                            shrink-0
+                                            items-center
+                                            gap-2
+                                            rounded-lg
+                                            px-3
+                                            py-2
+                                            text-sm
                                             transition
                                             ${
-                                                pageNumber ===
-                                                page
-                                                    ? "bg-blue-600 text-white"
-                                                    : "text-gray-600 hover:bg-gray-100"
+                                                active
+                                                    ? "bg-blue-50 font-semibold text-blue-700"
+                                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                             }
                                         `}
                                     >
-                                        {
-                                            pageNumber
-                                        }
+
+                                        <span
+                                            className="
+                                                text-base
+                                            "
+                                        >
+                                            {
+                                                folder.icon
+                                            }
+                                        </span>
+
+
+                                        <span>
+                                            {
+                                                folder.label
+                                            }
+                                        </span>
+
+
+                                        {folderCountsLoading ? (
+
+                                            <span
+                                                className="
+                                                    h-5
+                                                    min-w-5
+                                                    animate-pulse
+                                                    rounded-full
+                                                    bg-gray-200
+                                                "
+                                            />
+
+                                        ) : count > 0 ? (
+
+                                            <span
+                                                className={`
+                                                    flex
+                                                    h-5
+                                                    min-w-5
+                                                    items-center
+                                                    justify-center
+                                                    rounded-full
+                                                    px-1.5
+                                                    text-[10px]
+                                                    font-bold
+                                                    ${
+                                                        unread > 0
+                                                            ? "bg-blue-600 text-white"
+                                                            : active
+                                                                ? "bg-blue-100 text-blue-700"
+                                                                : "bg-gray-100 text-gray-600"
+                                                    }
+                                                `}
+                                            >
+                                                {count >
+                                                99
+                                                    ? "99+"
+                                                    : count}
+                                            </span>
+
+                                        ) : null}
+
+
                                     </button>
 
                                 );
@@ -1523,53 +1895,387 @@ const Inbox = () => {
 
                     </div>
 
+                </div>
 
-                    <span
+            );
+
+        };
+
+
+    // ============================================================
+    // SELECTION TOOLBAR
+    // ============================================================
+
+    const renderSelectionToolbar =
+        () => {
+
+            if (
+                messages.length === 0
+            ) {
+                return null;
+            }
+
+
+            return (
+
+                <div
+                    className="
+                        flex
+                        min-h-[54px]
+                        shrink-0
+                        items-center
+                        justify-between
+                        gap-3
+                        border-b
+                        border-gray-200
+                        bg-white
+                        px-3
+                        sm:px-4
+                    "
+                >
+
+                    <div
                         className="
-                            text-xs
-                            text-gray-500
-                            sm:hidden
+                            flex
+                            min-w-0
+                            items-center
+                            gap-3
                         "
                     >
-                        {page} /{" "}
-                        {totalPages}
-                    </span>
+
+                        <label
+                            className="
+                                flex
+                                shrink-0
+                                cursor-pointer
+                                select-none
+                                items-center
+                                gap-2
+                                text-xs
+                                text-gray-600
+                                sm:text-sm
+                            "
+                        >
+
+                            <input
+                                type="checkbox"
+                                checked={
+                                    allSelected
+                                }
+                                ref={(
+                                    element
+                                ) => {
+
+                                    if (
+                                        element
+                                    ) {
+
+                                        element.indeterminate =
+                                            partiallySelected;
+
+                                    }
+
+                                }}
+                                onChange={
+                                    handleSelectAll
+                                }
+                                className="
+                                    h-4
+                                    w-4
+                                    cursor-pointer
+                                    rounded
+                                    border-gray-300
+                                    text-blue-600
+                                    focus:ring-2
+                                    focus:ring-blue-500
+                                "
+                            />
+
+                            <span>
+                                Select All
+                            </span>
+
+                        </label>
 
 
-                    <button
-                        type="button"
-                        onClick={
-                            handleNextPage
-                        }
-                        disabled={
-                            page >=
-                            totalPages
-                        }
-                        className="
-                            rounded-lg
-                            border
-                            border-gray-200
-                            px-3
-                            py-2
-                            text-xs
-                            text-gray-700
-                            transition
-                            hover:bg-gray-50
-                            disabled:cursor-not-allowed
-                            disabled:opacity-40
-                            sm:text-sm
-                        "
-                    >
-                        Next
-                    </button>
+                        {selectedCount >
+                            0 && (
+
+                            <span
+                                className="
+                                    shrink-0
+                                    rounded-full
+                                    bg-blue-50
+                                    px-2.5
+                                    py-1
+                                    text-[11px]
+                                    font-semibold
+                                    text-blue-600
+                                    sm:text-xs
+                                "
+                            >
+                                {
+                                    selectedCount
+                                }{" "}
+                                selected
+                            </span>
+
+                        )}
+
+                    </div>
+
+
+                    {selectedCount >
+                        0 && (
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleClearSelection
+                            }
+                            className="
+                                shrink-0
+                                rounded-lg
+                                px-2
+                                py-1
+                                text-xs
+                                font-medium
+                                text-gray-500
+                                transition
+                                hover:bg-red-50
+                                hover:text-red-600
+                            "
+                        >
+                            Clear
+                        </button>
+
+                    )}
 
                 </div>
 
-            </div>
+            );
 
-        );
+        };
 
-    };
+
+    // ============================================================
+    // PAGINATION
+    // ============================================================
+
+    const renderPagination =
+        () => {
+
+            if (
+                loading ||
+                messages.length ===
+                    0
+            ) {
+                return null;
+            }
+
+
+            const totalPages =
+                Number(
+                    pagination.pages
+                ) || 1;
+
+
+            return (
+
+                <div
+                    className="
+                        shrink-0
+                        border-t
+                        border-gray-200
+                        bg-white
+                        px-3
+                        py-3
+                        sm:px-4
+                    "
+                >
+
+                    <div
+                        className="
+                            flex
+                            items-center
+                            justify-between
+                            gap-2
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            onClick={
+                                handlePreviousPage
+                            }
+                            disabled={
+                                page <= 1
+                            }
+                            className="
+                                rounded-lg
+                                border
+                                border-gray-200
+                                px-3
+                                py-2
+                                text-xs
+                                text-gray-700
+                                transition
+                                hover:bg-gray-50
+                                disabled:cursor-not-allowed
+                                disabled:opacity-40
+                                sm:text-sm
+                            "
+                        >
+                            Previous
+                        </button>
+
+
+                        <div
+                            className="
+                                hidden
+                                items-center
+                                gap-1
+                                sm:flex
+                            "
+                        >
+
+                            {getPageNumbers().map(
+                                (
+                                    pageNumber,
+                                    index
+                                ) => {
+
+                                    if (
+                                        pageNumber ===
+                                        "..."
+                                    ) {
+
+                                        return (
+
+                                            <span
+                                                key={
+                                                    `dots-${index}`
+                                                }
+                                                className="
+                                                    px-1
+                                                    text-xs
+                                                    text-gray-400
+                                                "
+                                            >
+                                                ...
+                                            </span>
+
+                                        );
+
+                                    }
+
+
+                                    return (
+
+                                        <button
+                                            key={
+                                                pageNumber
+                                            }
+                                            type="button"
+                                            onClick={() => {
+
+                                                if (
+                                                    pageNumber ===
+                                                    page
+                                                ) {
+
+                                                    return;
+
+                                                }
+
+
+                                                setSelectedMessage(
+                                                    null
+                                                );
+
+                                                setSelectedMessages(
+                                                    []
+                                                );
+
+
+                                                loadInbox(
+                                                    pageNumber
+                                                );
+
+                                            }}
+                                            className={`
+                                                h-8
+                                                w-8
+                                                rounded-md
+                                                text-xs
+                                                transition
+                                                ${
+                                                    pageNumber ===
+                                                    page
+                                                        ? "bg-blue-600 text-white"
+                                                        : "text-gray-600 hover:bg-gray-100"
+                                                }
+                                            `}
+                                        >
+                                            {
+                                                pageNumber
+                                            }
+                                        </button>
+
+                                    );
+
+                                }
+                            )}
+
+                        </div>
+
+
+                        <span
+                            className="
+                                text-xs
+                                text-gray-500
+                                sm:hidden
+                            "
+                        >
+                            {page} /{" "}
+                            {totalPages}
+                        </span>
+
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleNextPage
+                            }
+                            disabled={
+                                page >=
+                                totalPages
+                            }
+                            className="
+                                rounded-lg
+                                border
+                                border-gray-200
+                                px-3
+                                py-2
+                                text-xs
+                                text-gray-700
+                                transition
+                                hover:bg-gray-50
+                                disabled:cursor-not-allowed
+                                disabled:opacity-40
+                                sm:text-sm
+                            "
+                        >
+                            Next
+                        </button>
+
+                    </div>
+
+                </div>
+
+            );
+
+        };
 
 
     // ============================================================
@@ -1615,9 +2321,7 @@ const Inbox = () => {
                 `}
             >
 
-                {/* ==================================================
-                    CHECKBOX
-                ================================================== */}
+                {/* CHECKBOX */}
 
                 <div
                     className="
@@ -1639,7 +2343,9 @@ const Inbox = () => {
                                 message?._id
                             )
                         }
-                        onClick={(event) =>
+                        onClick={(
+                            event
+                        ) =>
                             event.stopPropagation()
                         }
                         className="
@@ -1657,9 +2363,7 @@ const Inbox = () => {
                 </div>
 
 
-                {/* ==================================================
-                    MESSAGE
-                ================================================== */}
+                {/* MESSAGE */}
 
                 <button
                     type="button"
@@ -1722,7 +2426,7 @@ const Inbox = () => {
                             "
                         >
 
-                            {/* TOP */}
+                            {/* SENDER + DATE */}
 
                             <div
                                 className="
@@ -1829,141 +2533,132 @@ const Inbox = () => {
 
 
     // ============================================================
-    // FULL-SCREEN MESSAGE VIEW
+    // FULL SCREEN MESSAGE VIEW
     // ============================================================
 
-    const renderMessageView = () => {
+    const renderMessageView =
+        () => {
 
-        return (
+            return (
 
-            <div
-                className="
-                    relative
-                    flex
-                    h-full
-                    min-h-0
-                    w-full
-                    min-w-0
-                    flex-1
-                    overflow-hidden
-                    bg-white
-                "
-            >
+                <div
+                    className="
+                        relative
+                        flex
+                        h-full
+                        min-h-0
+                        w-full
+                        min-w-0
+                        flex-1
+                        overflow-hidden
+                        bg-white
+                    "
+                >
 
-                {/* =================================================
-                    LOADING OVERLAY
-                ================================================== */}
-
-                {messageLoading && (
-
-                    <div
-                        className="
-                            absolute
-                            inset-0
-                            z-50
-                            flex
-                            items-center
-                            justify-center
-                            bg-white/60
-                            backdrop-blur-[1px]
-                        "
-                    >
+                    {messageLoading && (
 
                         <div
                             className="
-                                h-9
-                                w-9
-                                animate-spin
-                                rounded-full
-                                border-2
-                                border-blue-600
-                                border-t-transparent
+                                absolute
+                                inset-0
+                                z-50
+                                flex
+                                items-center
+                                justify-center
+                                bg-white/60
+                                backdrop-blur-[1px]
                             "
+                        >
+
+                            <div
+                                className="
+                                    h-9
+                                    w-9
+                                    animate-spin
+                                    rounded-full
+                                    border-2
+                                    border-blue-600
+                                    border-t-transparent
+                                "
+                            />
+
+                        </div>
+
+                    )}
+
+
+                    <div
+                        className="
+                            h-full
+                            min-h-0
+                            w-full
+                            min-w-0
+                            flex-1
+                            overflow-hidden
+                        "
+                    >
+
+                        <MessageViewer
+                            message={
+                                selectedMessage
+                            }
+
+                            onClose={
+                                handleCloseMessage
+                            }
+
+                            onMessageDeleted={
+                                handleDelete
+                            }
+
+                            onMessageUpdated={
+                                handleMessageUpdated
+                            }
+
+                            showCloseButton={
+                                true
+                            }
                         />
 
                     </div>
 
-                )}
 
+                    {messageError && (
 
-                {/* =================================================
-                    MESSAGE VIEWER
-                ================================================== */}
+                        <div
+                            className="
+                                absolute
+                                bottom-4
+                                left-4
+                                right-4
+                                z-[60]
+                                rounded-lg
+                                border
+                                border-red-200
+                                bg-red-50
+                                px-4
+                                py-3
+                                text-sm
+                                text-red-700
+                                shadow-lg
+                            "
+                        >
+                            {
+                                messageError
+                            }
+                        </div>
 
-                <div
-                    className="
-                        h-full
-                        min-h-0
-                        
-                        min-w-10
-                        flex-wrap
-                        overflow-x
-                    "
-                >
-
-                    <MessageViewer
-                        message={
-                            selectedMessage
-                        }
-
-                        onClose={
-                            handleCloseMessage
-                        }
-
-                        onMessageDeleted={
-                            handleDelete
-                        }
-
-                        onMessageUpdated={
-                            handleMessageUpdated
-                        }
-
-                        showCloseButton={
-                            true
-                        }
-                    />
+                    )}
 
                 </div>
 
+            );
 
-                {/* =================================================
-                    ERROR
-                ================================================== */}
-
-                {messageError && (
-
-                    <div
-                        className="
-                            absolute
-                            bottom-4
-                            left-4
-                            right-4
-                            z-[60]
-                            rounded-lg
-                            border
-                            border-red-200
-                            bg-red-50
-                            px-4
-                            py-3
-                            text-sm
-                            text-red-700
-                            shadow-lg
-                        "
-                    >
-                        {messageError}
-                    </div>
-
-                )}
-
-            </div>
-
-        );
-
-    };
+        };
 
 
     // ============================================================
-    // FULL-SCREEN INBOX VIEW
+    // FULL SCREEN INBOX
     // ============================================================
 
     const renderInbox = () => {
@@ -2030,7 +2725,8 @@ const Inbox = () => {
                             </h1>
 
 
-                            {unreadCount > 0 && (
+                            {unreadCount >
+                                0 && (
 
                                 <span
                                     className="
@@ -2047,7 +2743,8 @@ const Inbox = () => {
                                         text-white
                                     "
                                 >
-                                    {unreadCount > 99
+                                    {unreadCount >
+                                    99
                                         ? "99+"
                                         : unreadCount}
                                 </span>
@@ -2065,7 +2762,10 @@ const Inbox = () => {
                                 sm:text-sm
                             "
                         >
-                            {pagination.total} messages
+                            {
+                                pagination.total
+                            }{" "}
+                            messages
                         </p>
 
                     </div>
@@ -2112,6 +2812,13 @@ const Inbox = () => {
 
 
                 {/* =================================================
+                    FOLDER NAVIGATION + BADGES
+                ================================================== */}
+
+                {renderFolderNavigation()}
+
+
+                {/* =================================================
                     ERROR
                 ================================================== */}
 
@@ -2141,14 +2848,14 @@ const Inbox = () => {
 
 
                 {/* =================================================
-                    TOOLBAR
+                    SELECTION TOOLBAR
                 ================================================== */}
 
                 {renderSelectionToolbar()}
 
 
                 {/* =================================================
-                    LIST
+                    MESSAGE LIST
                 ================================================== */}
 
                 <div
@@ -2156,8 +2863,8 @@ const Inbox = () => {
                         min-h-0
                         min-w-0
                         flex-1
-                        overflow-x
-                        overflow-y
+                        overflow-x-hidden
+                        overflow-y-auto
                     "
                 >
 
@@ -2165,7 +2872,8 @@ const Inbox = () => {
 
                         renderSkeletons()
 
-                    ) : messages.length === 0 ? (
+                    ) : messages.length ===
+                      0 ? (
 
                         renderEmptyState()
 
@@ -2203,16 +2911,7 @@ const Inbox = () => {
 
 
     // ============================================================
-    // IMPORTANT MAIN RETURN
-    //
-    // NEVER use:
-    //
-    // lg:grid
-    // grid-cols-[...]
-    //
-    // here.
-    //
-    // Only one view is mounted at a time.
+    // MAIN
     // ============================================================
 
     return (
@@ -2222,7 +2921,7 @@ const Inbox = () => {
                 h-full
                 min-h-0
                 w-full
-                min-w-10
+                min-w-0
                 overflow-hidden
                 bg-white
             "

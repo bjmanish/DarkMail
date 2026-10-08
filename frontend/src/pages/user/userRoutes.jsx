@@ -72,7 +72,7 @@ const UserRoutes = () => {
                 <Route
                     path="compose"
                     element={
-                        <ComposeModal />
+                        <ComposeModal  open={true} />
                     }
                 />
 

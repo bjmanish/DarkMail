@@ -306,28 +306,7 @@ export const getThreadApi = async (
 ========================================================= */
 
 /*
- * Backend endpoint:
- *
- * GET
- * /api/messages/:messageId/attachments/:attachmentIndex
- *
- * Example:
- *
- * /api/messages/
- * 6abacac1232dcf8dc3a3e5e5/
- * attachments/0
- *
- *
- * IMPORTANT:
- *
- * This request MUST use the `api` Axios instance.
- *
- * The Axios request interceptor automatically adds:
- *
- * Authorization: Bearer <JWT>
- *
- * responseType: "blob" is required because the backend
- * returns the actual attachment file.
+ * GET /api/messages/:messageId/attachments/:attachmentIndex
  */
 
 export const downloadAttachmentApi = async (

@@ -746,105 +746,222 @@ const MainLayout = () => {
                     "
                 >
 
-                    <h2
-                        className="
-                            flex
-                            min-w-0
-                            items-center
-                            gap-3
-                        "
-                    >
+                    {/* =====================================================
+                        DARKMAIL BRAND
+                    ===================================================== */}
 
-                        <div
+                    {String(user?.role || "").toUpperCase() === "ADMIN" ? (
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                navigate("/admin")
+                            }
+                            title="Go to Admin Dashboard"
                             className="
                                 flex
-                                h-11
-                                w-11
-                                shrink-0
-                                items-center
-                                justify-center
-                                overflow-hidden
-                                rounded-xl
-                                bg-indigo-600
-                                shadow-md
-                            "
-                        >
-
-                            <img
-                                src={Hero}
-                                alt="DarkMail"
-                                className="
-                                    h-9
-                                    w-9
-                                    object-contain
-                                "
-                            />
-
-                        </div>
-
-
-                        <div
-                            className="
                                 min-w-0
+                                items-center
+                                gap-3
+                                rounded-xl
+                                text-left
+                                transition
+                                hover:opacity-90
+                                focus:outline-none
+                                focus-visible:ring-2
+                                focus-visible:ring-indigo-500
+                                focus-visible:ring-offset-2
                             "
                         >
 
                             <div
                                 className="
                                     flex
+                                    h-11
+                                    w-11
+                                    shrink-0
                                     items-center
-                                    gap-2
+                                    justify-center
+                                    overflow-hidden
+                                    rounded-xl
+                                    bg-indigo-600
+                                    shadow-md
                                 "
                             >
-
-                                <h1
+                                <img
+                                    src={Hero}
+                                    alt="DarkMail"
                                     className="
-                                        truncate
-                                        text-lg
-                                        font-bold
-                                        tracking-tight
-                                        text-gray-900
+                                        h-9
+                                        w-9
+                                        object-contain
                                     "
-                                >
-                                    DarkMail
-                                </h1>
-
-                                <span
-                                    className="
-                                        rounded-md
-                                        bg-indigo-50
-                                        px-1.5
-                                        py-0.5
-                                        text-[9px]
-                                        font-semibold
-                                        tracking-wide
-                                        text-indigo-600
-                                    "
-                                >
-                                    v
-                                    {
-                                        import.meta.env
-                                            .VITE_PACKAGE_VERSION ||
-                                        "1.0.1"
-                                    }
-                                </span>
-
+                                />
                             </div>
 
 
-                            <p
+                            <div
                                 className="
-                                    truncate
-                                    text-[11px]
-                                    text-gray-500
+                                    min-w-0
                                 "
                             >
-                                Internal Mail System
-                            </p>
+
+                                <div
+                                    className="
+                                        flex
+                                        items-center
+                                        gap-2
+                                    "
+                                >
+
+                                    <h1
+                                        className="
+                                            truncate
+                                            text-lg
+                                            font-bold
+                                            tracking-tight
+                                            text-gray-900
+                                        "
+                                    >
+                                        DarkMail
+                                    </h1>
+
+                                    <span
+                                        className="
+                                            rounded-md
+                                            bg-indigo-50
+                                            px-1.5
+                                            py-0.5
+                                            text-[9px]
+                                            font-semibold
+                                            tracking-wide
+                                            text-indigo-600
+                                        "
+                                    >
+                                        v
+                                        {
+                                            import.meta.env
+                                                .VITE_PACKAGE_VERSION ||
+                                            "1.0.1"
+                                        }
+                                    </span>
+
+                                </div>
+
+                                <p
+                                    className="
+                                        truncate
+                                        text-[11px]
+                                        text-gray-500
+                                    "
+                                >
+                                    Internal Mail System
+                                </p>
+
+                            </div>
+
+                        </button>
+
+                    ) : (
+
+                        <div
+                            className="
+                                flex
+                                min-w-0
+                                items-center
+                                gap-3
+                            "
+                        >
+
+                            <div
+                                className="
+                                    flex
+                                    h-11
+                                    w-11
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    overflow-hidden
+                                    rounded-xl
+                                    bg-indigo-600
+                                    shadow-md
+                                "
+                            >
+                                <img
+                                    src={Hero}
+                                    alt="DarkMail"
+                                    className="
+                                        h-9
+                                        w-9
+                                        object-contain
+                                    "
+                                />
+                            </div>
+
+
+                            <div
+                                className="
+                                    min-w-0
+                                "
+                            >
+
+                                <div
+                                    className="
+                                        flex
+                                        items-center
+                                        gap-2
+                                    "
+                                >
+
+                                    <h1
+                                        className="
+                                            truncate
+                                            text-lg
+                                            font-bold
+                                            tracking-tight
+                                            text-gray-900
+                                        "
+                                    >
+                                        DarkMail
+                                    </h1>
+
+                                    <span
+                                        className="
+                                            rounded-md
+                                            bg-indigo-50
+                                            px-1.5
+                                            py-0.5
+                                            text-[9px]
+                                            font-semibold
+                                            tracking-wide
+                                            text-indigo-600
+                                        "
+                                    >
+                                        v
+                                        {
+                                            import.meta.env
+                                                .VITE_PACKAGE_VERSION ||
+                                            "1.0.1"
+                                        }
+                                    </span>
+
+                                </div>
+
+                                <p
+                                    className="
+                                        truncate
+                                        text-[11px]
+                                        text-gray-500
+                                    "
+                                >
+                                    Internal Mail System
+                                </p>
+
+                            </div>
 
                         </div>
 
-                    </h2>
+                    )}
 
 
                     {/* MOBILE CLOSE */}
@@ -862,12 +979,12 @@ const MainLayout = () => {
                             hover:bg-gray-100
                             lg:hidden
                         "
+                        aria-label="Close sidebar"
                     >
                         <X size={21} />
                     </button>
 
                 </div>
-
 
                 {/* =================================================
                     COMPOSE
@@ -1373,7 +1490,7 @@ const MainLayout = () => {
 
                         {/* SEARCH */}
 
-                        <button
+                        {/* <button
                             type="button"
                             onClick={() =>
                                 setSearchOpen(
@@ -1391,7 +1508,7 @@ const MainLayout = () => {
                             "
                         >
                             <Search size={19} />
-                        </button>
+                        </button> */}
 
 
                         {/* REFRESH */}

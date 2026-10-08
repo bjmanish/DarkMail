@@ -232,17 +232,6 @@ const sendMessage = async (req, res) => {
 
     try {
 
-        // console.log("\n========================================");
-        // console.log("DARKMAIL SEND MESSAGE");
-        // console.log("========================================");
-
-        // console.log("Logged-in user:", {
-        //     id: req.user?._id?.toString(),
-        //     employeeId: req.user?.employeeId,
-        //     name: req.user?.name,
-        //     email: req.user?.email
-        // });
-
         const subject = String(
             req.body.subject || ""
         ).trim();
@@ -254,12 +243,6 @@ const sendMessage = async (req, res) => {
         const toInput = req.body.to;
         const ccInput = req.body.cc;
         const bccInput = req.body.bcc;
-
-
-        // console.log("RAW TO:", toInput);
-        // console.log("RAW CC:", ccInput);
-        // console.log("RAW BCC:", bccInput);
-
 
         /* -----------------------------------------
            VALIDATION
@@ -295,35 +278,6 @@ const sendMessage = async (req, res) => {
 
         const bccEmployees =
             await resolveRecipients(bccInput);
-
-
-        // console.log("RESOLVED TO:",
-        //     toEmployees.map((employee) => ({
-        //         id: employee._id.toString(),
-        //         employeeId: employee.employeeId,
-        //         name: employee.name,
-        //         email: employee.email
-        //     }))
-        // );
-
-        // console.log("RESOLVED CC:",
-        //     ccEmployees.map((employee) => ({
-        //         id: employee._id.toString(),
-        //         employeeId: employee.employeeId,
-        //         name: employee.name,
-        //         email: employee.email
-        //     }))
-        // );
-
-        // console.log("RESOLVED BCC:",
-        //     bccEmployees.map((employee) => ({
-        //         id: employee._id.toString(),
-        //         employeeId: employee.employeeId,
-        //         name: employee.name,
-        //         email: employee.email
-        //     }))
-        // );
-
 
         /* -----------------------------------------
            TO IS REQUIRED
@@ -435,20 +389,6 @@ const sendMessage = async (req, res) => {
                     "At least one valid To recipient is required"
             });
         }
-
-
-        // console.log("FINAL TO:",
-        //     employeeEmails(uniqueTo)
-        // );
-
-        // console.log("FINAL CC:",
-        //     employeeEmails(uniqueCc)
-        // );
-
-        // console.log("FINAL BCC:",
-        //     employeeEmails(uniqueBcc)
-        // );
-
 
         /* -----------------------------------------
            ATTACHMENTS
@@ -594,15 +534,6 @@ const sendMessage = async (req, res) => {
             }
         ]);
 
-
-        // console.log(
-        //     "MESSAGE CREATED:",
-        //     message._id.toString()
-        // );
-
-        // console.log("========================================\n");
-
-
         return res.status(201).json({
 
             success: true,
@@ -646,18 +577,49 @@ const getMessages = async (req, res) => {
 
     try {
 
+        /* =====================================================
+           CURRENT USER
+        ===================================================== */
+
         const userId =
             req.user._id;
 
+        const userIdString =
+            userId.toString();
+
+
+        /* =====================================================
+           FOLDER
+           
+           Supported:
+           
+           inbox
+           sent
+           drafts
+           unread
+           trash
+           all
+        ===================================================== */
+
         const folder =
             String(
-                req.query.folder || "inbox"
-            ).trim().toLowerCase();
+                req.query.folder ||
+                "inbox"
+            )
+                .trim()
+                .toLowerCase();
 
+
+        /* =====================================================
+           PAGINATION
+        ===================================================== */
 
         const page =
             Math.max(
-                parseInt(req.query.page) || 1,
+                parseInt(
+                    req.query.page,
+                    10
+                ) || 1,
                 1
             );
 
@@ -665,7 +627,10 @@ const getMessages = async (req, res) => {
         const limit =
             Math.min(
                 Math.max(
-                    parseInt(req.query.limit) || 20,
+                    parseInt(
+                        req.query.limit,
+                        10
+                    ) || 20,
                     1
                 ),
                 100
@@ -673,53 +638,112 @@ const getMessages = async (req, res) => {
 
 
         const skip =
-            (page - 1) * limit;
+            (page - 1) *
+            limit;
 
 
-        /*
-         * Base query
-         *
-         * SENT messages only.
-         *
-         * Messages permanently deleted by the
-         * current user are hidden.
-         */
+        /* =====================================================
+           VALID FOLDERS
+        ===================================================== */
+
+        const validFolders = [
+            "inbox",
+            "sent",
+            "drafts",
+            "unread",
+            "trash",
+            "all",
+        ];
+
+
+        if (
+            !validFolders.includes(
+                folder
+            )
+        ) {
+
+            return res.status(
+                400
+            ).json({
+
+                success: false,
+
+                message:
+                    "Invalid folder. Use inbox, sent, drafts, unread, trash or all.",
+
+            });
+
+        }
+
+
+        /* =====================================================
+           BASE QUERY
+           
+           Permanently deleted messages are hidden from
+           normal mailbox queries.
+           
+           The trash query will also respect this condition.
+        ===================================================== */
 
         let query = {
 
-            status: "SENT",
-
             permanentlyDeletedBy: {
                 $ne: userId
-            }
+            },
 
         };
 
 
         /* =====================================================
            INBOX
+           
+           IMPORTANT:
+           
+           Inbox uses only RECEIVED messages when the API
+           is called with:
+           
+           folder=inbox
+           
+           The frontend mixed mailbox uses:
+           
+           folder=all
+           
+           Therefore this branch remains a true Inbox query.
         ===================================================== */
 
-        if (folder === "inbox") {
+        if (
+            folder ===
+            "inbox"
+        ) {
+
+            query.status =
+                "SENT";
+
 
             query.$or = [
 
                 {
-                    to: userId
+                    to: userId,
                 },
 
                 {
-                    cc: userId
+                    cc: userId,
                 },
 
                 {
-                    bcc: userId
-                }
+                    bcc: userId,
+                },
 
             ];
 
+
+            /*
+             * User has not moved this message
+             * to their own trash.
+             */
+
             query.deletedBy = {
-                $ne: userId
+                $ne: userId,
             };
 
         }
@@ -727,14 +751,61 @@ const getMessages = async (req, res) => {
 
         /* =====================================================
            SENT
+           
+           User must be the sender.
         ===================================================== */
 
-        else if (folder === "sent") {
+        else if (
+            folder ===
+            "sent"
+        ) {
 
-            query.sender = userId;
+            query.status =
+                "SENT";
+
+
+            query.sender =
+                userId;
+
 
             query.deletedBy = {
-                $ne: userId
+                $ne: userId,
+            };
+
+        }
+
+
+        /* =====================================================
+           DRAFTS
+           
+           User owns the draft.
+           
+           Expected document:
+           
+           status: "DRAFT"
+           sender: userId
+        ===================================================== */
+
+        else if (
+            folder ===
+            "drafts"
+        ) {
+
+            query.status =
+                "DRAFT";
+
+
+            query.sender =
+                userId;
+
+
+            /*
+             * If a draft has been moved to trash,
+             * do not show it in Drafts.
+             */
+
+            query.deletedBy = {
+                $ne: userId,
             };
 
         }
@@ -742,32 +813,45 @@ const getMessages = async (req, res) => {
 
         /* =====================================================
            UNREAD
+           
+           User must be a recipient.
+           
+           readBy must not contain current user.
         ===================================================== */
 
-        else if (folder === "unread") {
+        else if (
+            folder ===
+            "unread"
+        ) {
+
+            query.status =
+                "SENT";
+
 
             query.$or = [
 
                 {
-                    to: userId
+                    to: userId,
                 },
 
                 {
-                    cc: userId
+                    cc: userId,
                 },
 
                 {
-                    bcc: userId
-                }
+                    bcc: userId,
+                },
 
             ];
 
+
             query.deletedBy = {
-                $ne: userId
+                $ne: userId,
             };
 
+
             query.readBy = {
-                $ne: userId
+                $ne: userId,
             };
 
         }
@@ -775,52 +859,130 @@ const getMessages = async (req, res) => {
 
         /* =====================================================
            TRASH
+           
+           Message was moved to trash by current user.
+           
+           IMPORTANT:
+           
+           deletedBy can contain multiple users.
+           We check whether current user exists in it.
         ===================================================== */
 
-        else if (folder === "trash") {
+        else if (
+            folder ===
+            "trash"
+        ) {
 
-            query.deletedBy = userId;
+            query.deletedBy =
+                userId;
 
         }
 
 
         /* =====================================================
-           INVALID FOLDER
+           ALL
+           
+           This is the IMPORTANT branch for your new
+           mixed Inbox screen.
+           
+           It returns every message related to the current
+           employee:
+           
+           sender
+           to
+           cc
+           bcc
+           
+           Then the code below determines:
+           
+           Inbox
+           Sent
+           Draft
+           Trash
+           
+           individually for every message.
         ===================================================== */
 
-        else {
+        else if (
+            folder ===
+            "all"
+        ) {
 
-            return res.status(400).json({
+            query.$or = [
 
-                success: false,
+                {
+                    sender: userId,
+                },
 
-                message:
-                    "Invalid folder. Use inbox, sent, unread or trash."
+                {
+                    to: userId,
+                },
 
-            });
+                {
+                    cc: userId,
+                },
+
+                {
+                    bcc: userId,
+                },
+
+            ];
 
         }
 
+
+        /* =====================================================
+           DEBUG
+           
+           Uncomment when debugging.
+        ===================================================== */
 
         /*
-         * Debug information.
-         *
-         * Enable these logs if you need to debug
-         * MongoDB filtering.
-         */
+        console.log(
+            "\n========================================"
+        );
 
-        // console.log("\n========================================");
-        // console.log("DARKMAIL MESSAGE DEBUG");
-        // console.log("User ID:", userId.toString());
-        // console.log("Folder:", folder);
-        // console.log("Page:", page);
-        // console.log("Limit:", limit);
-        // console.log("Query:", JSON.stringify(query, null, 2));
-        // console.log("========================================");
+        console.log(
+            "DARKMAIL MESSAGE DEBUG"
+        );
+
+        console.log(
+            "User ID:",
+            userIdString
+        );
+
+        console.log(
+            "Folder:",
+            folder
+        );
+
+        console.log(
+            "Page:",
+            page
+        );
+
+        console.log(
+            "Limit:",
+            limit
+        );
+
+        console.log(
+            "Query:",
+            JSON.stringify(
+                query,
+                null,
+                2
+            )
+        );
+
+        console.log(
+            "========================================\n"
+        );
+        */
 
 
         /* =====================================================
-           COUNT TOTAL
+           TOTAL COUNT
         ===================================================== */
 
         const total =
@@ -834,47 +996,101 @@ const getMessages = async (req, res) => {
         ===================================================== */
 
         const messages =
-            await Message.find(query)
+            await Message.find(
+                query
+            )
+
+                /* ---------------------------------------------
+                   SENDER
+                --------------------------------------------- */
 
                 .populate(
                     "sender",
                     "employeeId name email role"
                 )
 
+
+                /* ---------------------------------------------
+                   TO
+                --------------------------------------------- */
+
                 .populate(
                     "to",
                     "employeeId name email"
                 )
+
+
+                /* ---------------------------------------------
+                   CC
+                --------------------------------------------- */
 
                 .populate(
                     "cc",
                     "employeeId name email"
                 )
 
+
+                /* ---------------------------------------------
+                   BCC
+                --------------------------------------------- */
+
                 .populate(
                     "bcc",
                     "employeeId name email"
                 )
 
+
+                /* ---------------------------------------------
+                   LATEST FIRST
+                --------------------------------------------- */
+
                 .sort({
+
                     sentAt: -1,
-                    createdAt: -1
+
+                    createdAt: -1,
+
                 })
 
-                .skip(skip)
 
-                .limit(limit)
+                /* ---------------------------------------------
+                   PAGINATION
+                --------------------------------------------- */
+
+                .skip(
+                    skip
+                )
+
+                .limit(
+                    limit
+                )
+
+
+                /* ---------------------------------------------
+                   RETURN PLAIN OBJECTS
+                --------------------------------------------- */
 
                 .lean();
 
 
         /* =====================================================
-           ADD isRead FOR CURRENT USER
+           FORMAT MESSAGES
+           
+           Add:
+           
+           isRead
+           mailFolder
         ===================================================== */
 
         const formattedMessages =
             messages.map(
-                (message) => {
+                (
+                    message
+                ) => {
+
+                    /* =========================================
+                       READ STATUS
+                    ========================================= */
 
                     const readBy =
                         Array.isArray(
@@ -886,17 +1102,223 @@ const getMessages = async (req, res) => {
 
                     const isRead =
                         readBy.some(
-                            (id) =>
+                            (
+                                id
+                            ) =>
                                 id?.toString() ===
-                                userId.toString()
+                                userIdString
                         );
 
+
+                    /* =========================================
+                       SENDER ID
+                    ========================================= */
+
+                    const senderId =
+                        message
+                            ?.sender
+                            ?._id
+                            ?.toString();
+
+
+                    /* =========================================
+                       RECIPIENT IDS
+                       
+                       Combine:
+                       
+                       to
+                       cc
+                       bcc
+                    ========================================= */
+
+                    const toUsers =
+                        Array.isArray(
+                            message.to
+                        )
+                            ? message.to
+                            : [];
+
+
+                    const ccUsers =
+                        Array.isArray(
+                            message.cc
+                        )
+                            ? message.cc
+                            : [];
+
+
+                    const bccUsers =
+                        Array.isArray(
+                            message.bcc
+                        )
+                            ? message.bcc
+                            : [];
+
+
+                    const recipientIds = [
+
+                        ...toUsers,
+
+                        ...ccUsers,
+
+                        ...bccUsers,
+
+                    ]
+
+                        .map(
+                            (
+                                user
+                            ) =>
+                                user?._id
+                                    ?.toString() ||
+                                user?.toString()
+                        )
+
+                        .filter(
+                            Boolean
+                        );
+
+
+                    /* =========================================
+                       USER RELATIONSHIP
+                    ========================================= */
+
+                    const isSender =
+                        senderId ===
+                        userIdString;
+
+
+                    const isRecipient =
+                        recipientIds.includes(
+                            userIdString
+                        );
+
+
+                    /* =========================================
+                       DELETED BY
+                    ========================================= */
+
+                    const deletedBy =
+                        Array.isArray(
+                            message.deletedBy
+                        )
+                            ? message.deletedBy
+                            : [];
+
+
+                    const isInTrash =
+                        deletedBy.some(
+                            (
+                                id
+                            ) =>
+                                id?.toString() ===
+                                userIdString
+                        );
+
+
+                    /* =========================================
+                       DETERMINE MAIL FOLDER
+                       
+                       PRIORITY:
+                       
+                       1. Trash
+                       2. Draft
+                       3. Sent
+                       4. Inbox
+                    ========================================= */
+
+                    let mailFolder =
+                        "inbox";
+
+
+                    /* -----------------------------------------
+                       TRASH
+                    ----------------------------------------- */
+
+                    if (
+                        isInTrash
+                    ) {
+
+                        mailFolder =
+                            "trash";
+
+                    }
+
+
+                    /* -----------------------------------------
+                       DRAFT
+                    ----------------------------------------- */
+
+                    else if (
+                        message.status ===
+                            "DRAFT" &&
+                        isSender
+                    ) {
+
+                        mailFolder =
+                            "drafts";
+
+                    }
+
+
+                    /* -----------------------------------------
+                       SENT
+                    ----------------------------------------- */
+
+                    else if (
+                        message.status ===
+                            "SENT" &&
+                        isSender
+                    ) {
+
+                        mailFolder =
+                            "sent";
+
+                    }
+
+
+                    /* -----------------------------------------
+                       INBOX
+                    ----------------------------------------- */
+
+                    else if (
+                        message.status ===
+                            "SENT" &&
+                        isRecipient
+                    ) {
+
+                        mailFolder =
+                            "inbox";
+
+                    }
+
+
+                    /* -----------------------------------------
+                       FALLBACK
+                    ----------------------------------------- */
+
+                    else {
+
+                        mailFolder =
+                            folder ===
+                            "all"
+                                ? "inbox"
+                                : folder;
+
+                    }
+
+
+                    /* =========================================
+                       RETURN MESSAGE
+                    ========================================= */
 
                     return {
 
                         ...message,
 
-                        isRead
+                        isRead,
+
+                        mailFolder,
 
                     };
 
@@ -905,71 +1327,16 @@ const getMessages = async (req, res) => {
 
 
         /* =====================================================
-           DEBUG
-        ===================================================== */
-
-        // formattedMessages.forEach(
-        //     (message, index) => {
-        //
-        //         console.log(
-        //             `MESSAGE ${index + 1}:`
-        //         );
-        //
-        //         console.log(
-        //             "ID:",
-        //             message._id?.toString()
-        //         );
-        //
-        //         console.log(
-        //             "Sender:",
-        //             message.sender?._id?.toString()
-        //         );
-        //
-        //         console.log(
-        //             "To:",
-        //             message.to?.map(
-        //                 (user) =>
-        //                     user?._id?.toString()
-        //             )
-        //         );
-        //
-        //         console.log(
-        //             "CC:",
-        //             message.cc?.map(
-        //                 (user) =>
-        //                     user?._id?.toString()
-        //             )
-        //         );
-        //
-        //         console.log(
-        //             "BCC:",
-        //             message.bcc?.map(
-        //                 (user) =>
-        //                     user?._id?.toString()
-        //             )
-        //         );
-        //
-        //         console.log(
-        //             "Subject:",
-        //             message.subject
-        //         );
-        //
-        //         console.log(
-        //             "Read:",
-        //             message.isRead
-        //         );
-        //
-        //     }
-        // );
-
-
-        /* =====================================================
-           PAGINATION
+           TOTAL PAGES
         ===================================================== */
 
         const pages =
-            Math.ceil(
-                total / limit
+            Math.max(
+                Math.ceil(
+                    total /
+                    limit
+                ),
+                1
             );
 
 
@@ -977,9 +1344,21 @@ const getMessages = async (req, res) => {
            RESPONSE
         ===================================================== */
 
-        return res.status(200).json({
+        return res.status(
+            200
+        ).json({
 
             success: true,
+
+            /*
+             * Requested API folder.
+             *
+             * For Inbox frontend this will be:
+             *
+             * "all"
+             */
+
+            folder,
 
             count:
                 formattedMessages.length,
@@ -992,32 +1371,28 @@ const getMessages = async (req, res) => {
 
             pages,
 
-            /*
-             * Primary response property.
-             */
+            hasNext:
+                page < pages,
+
+            hasPrevious:
+                page > 1,
 
             data:
                 formattedMessages,
 
-            /*
-             * Compatibility property.
-             *
-             * Inbox/Sent components can use:
-             *
-             * response.messages
-             *
-             * Drafts/Trash continue using:
-             *
-             * response.data
-             */
-
             messages:
-                formattedMessages
+                formattedMessages,
 
         });
 
 
-    } catch (error) {
+    } catch (
+        error
+    ) {
+
+        /* =====================================================
+           ERROR LOG
+        ===================================================== */
 
         console.error(
             "Get messages error:",
@@ -1025,7 +1400,13 @@ const getMessages = async (req, res) => {
         );
 
 
-        return res.status(500).json({
+        /* =====================================================
+           ERROR RESPONSE
+        ===================================================== */
+
+        return res.status(
+            500
+        ).json({
 
             success: false,
 
@@ -1033,15 +1414,17 @@ const getMessages = async (req, res) => {
                 "Failed to fetch messages",
 
             error:
-                process.env.NODE_ENV === "development"
+                process.env.NODE_ENV ===
+                "development"
                     ? error.message
-                    : undefined
+                    : undefined,
 
         });
 
     }
 
 };
+
 
 
 /* =========================================================

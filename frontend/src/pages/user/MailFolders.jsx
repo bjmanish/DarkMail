@@ -6,25 +6,22 @@ import React, {
 } from "react";
 
 import {
-    Archive,
     Check,
     ChevronLeft,
     ChevronRight,
-    Clock,
     FileText,
     Inbox as InboxIcon,
-    Mail,
-    MailOpen,
-    MoreHorizontal,
+    Loader2,
+    Paperclip,
     RefreshCw,
     RotateCcw,
     Search,
     Send,
     Trash2,
     X,
-    Loader2,
     AlertCircle,
-    Paperclip,
+    Mail,
+    MailOpen,
 } from "lucide-react";
 
 import {
@@ -59,7 +56,8 @@ const FOLDER_CONFIG = {
         label: "Inbox",
         icon: InboxIcon,
         description:
-            "Messages received in your inbox.",
+            "All your mailbox messages.",
+        apiFolder: "all",
     },
 
     sent: {
@@ -67,6 +65,7 @@ const FOLDER_CONFIG = {
         icon: Send,
         description:
             "Messages you have sent.",
+        apiFolder: "sent",
     },
 
     drafts: {
@@ -74,6 +73,7 @@ const FOLDER_CONFIG = {
         icon: FileText,
         description:
             "Messages saved as drafts.",
+        apiFolder: "drafts",
     },
 
     trash: {
@@ -81,13 +81,14 @@ const FOLDER_CONFIG = {
         icon: Trash2,
         description:
             "Deleted messages.",
+        apiFolder: "trash",
     },
 
 };
 
 
 /* =========================================================
-   HELPERS
+   MESSAGE ID
 ========================================================= */
 
 const getMessageId = (message) => {
@@ -101,17 +102,19 @@ const getMessageId = (message) => {
 };
 
 
+/* =========================================================
+   PERSON NAME
+========================================================= */
+
 const getPersonName = (person) => {
 
     if (!person) {
         return "Unknown User";
     }
 
-
     if (typeof person === "string") {
         return person;
     }
-
 
     return (
         person.name ||
@@ -125,17 +128,19 @@ const getPersonName = (person) => {
 };
 
 
+/* =========================================================
+   PERSON EMAIL
+========================================================= */
+
 const getPersonEmail = (person) => {
 
     if (!person) {
         return "";
     }
 
-
     if (typeof person === "string") {
         return person;
     }
-
 
     return (
         person.email ||
@@ -145,6 +150,10 @@ const getPersonEmail = (person) => {
 
 };
 
+
+/* =========================================================
+   INITIAL
+========================================================= */
 
 const getInitial = (person) => {
 
@@ -158,6 +167,10 @@ const getInitial = (person) => {
 };
 
 
+/* =========================================================
+   SUBJECT
+========================================================= */
+
 const getSubject = (message) => {
 
     return (
@@ -168,6 +181,10 @@ const getSubject = (message) => {
 };
 
 
+/* =========================================================
+   BODY PREVIEW
+========================================================= */
+
 const getBodyPreview = (message) => {
 
     const body =
@@ -175,35 +192,65 @@ const getBodyPreview = (message) => {
         message?.text ||
         "";
 
-
-    return body
+    return String(body)
         .replace(/\s+/g, " ")
         .trim();
 
 };
 
 
-const formatDate = (date) => {
+/* =========================================================
+   DATE
+========================================================= */
+
+const formatShortDate = (date) => {
 
     if (!date) {
         return "";
     }
 
-
     const parsedDate =
         new Date(date);
-
 
     if (
         Number.isNaN(
             parsedDate.getTime()
         )
     ) {
-
         return "";
-
     }
 
+    return parsedDate.toLocaleDateString(
+        "en-IN",
+        {
+            day: "2-digit",
+            month: "short",
+        }
+    );
+
+};
+
+
+/* =========================================================
+   FULL DATE
+========================================================= */
+
+const formatDateTime = (date) => {
+
+    if (!date) {
+        return "";
+    }
+
+    const parsedDate =
+        new Date(date);
+
+    if (
+        Number.isNaN(
+            parsedDate.getTime()
+        )
+    ) {
+        return "";
+    }
 
     return parsedDate.toLocaleString(
         "en-IN",
@@ -213,39 +260,6 @@ const formatDate = (date) => {
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
-        }
-    );
-
-};
-
-
-const formatShortDate = (date) => {
-
-    if (!date) {
-        return "";
-    }
-
-
-    const parsedDate =
-        new Date(date);
-
-
-    if (
-        Number.isNaN(
-            parsedDate.getTime()
-        )
-    ) {
-
-        return "";
-
-    }
-
-
-    return parsedDate.toLocaleDateString(
-        "en-IN",
-        {
-            day: "2-digit",
-            month: "short",
         }
     );
 
@@ -264,33 +278,25 @@ const normalizeMessages = (
         return [];
     }
 
-
     if (Array.isArray(response)) {
         return response;
     }
-
 
     if (
         Array.isArray(
             response.data
         )
     ) {
-
         return response.data;
-
     }
-
 
     if (
         Array.isArray(
             response.messages
         )
     ) {
-
         return response.messages;
-
     }
-
 
     if (
         response.data &&
@@ -298,13 +304,57 @@ const normalizeMessages = (
             response.data.messages
         )
     ) {
-
         return response.data.messages;
-
     }
 
-
     return [];
+
+};
+
+
+/* =========================================================
+   NORMALIZE TOTAL
+========================================================= */
+
+const normalizeTotal = (
+    response
+) => {
+
+    if (!response) {
+        return 0;
+    }
+
+    if (
+        typeof response.total ===
+        "number"
+    ) {
+        return response.total;
+    }
+
+    if (
+        typeof response.data?.total ===
+        "number"
+    ) {
+        return response.data.total;
+    }
+
+    if (
+        typeof response.pagination?.total ===
+        "number"
+    ) {
+        return response.pagination.total;
+    }
+
+    if (
+        typeof response.data?.pagination?.total ===
+        "number"
+    ) {
+        return response.data.pagination.total;
+    }
+
+    return normalizeMessages(
+        response
+    ).length;
 
 };
 
@@ -317,39 +367,91 @@ const normalizePagination = (
     response
 ) => {
 
+    if (!response) {
+
+        return {
+
+            page: 1,
+
+            limit: LIMIT,
+
+            total: 0,
+
+            totalPages: 1,
+
+            hasNext: false,
+
+            hasPrevious: false,
+
+        };
+
+    }
+
     const pagination =
         response?.pagination ||
         response?.data?.pagination ||
         {};
 
+    const page =
+        Number(
+            response?.page ||
+            pagination.page ||
+            1
+        );
+
+    const limit =
+        Number(
+            response?.limit ||
+            pagination.limit ||
+            LIMIT
+        );
+
+    const total =
+        Number(
+            response?.total ??
+            response?.data?.total ??
+            pagination.total ??
+            0
+        );
+
+    const totalPages =
+        Number(
+            response?.pages ??
+            response?.totalPages ??
+            response?.data?.pages ??
+            pagination.totalPages ??
+            pagination.pages ??
+            Math.max(
+                Math.ceil(
+                    total / limit
+                ),
+                1
+            )
+        );
 
     return {
 
-        page:
-            pagination.page ||
-            1,
+        page,
 
-        limit:
-            pagination.limit ||
-            LIMIT,
+        limit,
 
-        total:
-            pagination.total ||
-            0,
+        total,
 
         totalPages:
-            pagination.totalPages ||
-            pagination.pages ||
-            1,
+
+            totalPages > 0
+                ? totalPages
+                : 1,
 
         hasNext:
+            response?.hasNext ??
             pagination.hasNext ??
-            false,
+            page < totalPages,
 
         hasPrevious:
+            response?.hasPrevious ??
             pagination.hasPrevious ??
-            pagination.hasPrev ??
-            false,
+            page > 1,
 
     };
 
@@ -357,7 +459,123 @@ const normalizePagination = (
 
 
 /* =========================================================
-   MAIN MAIL FOLDER COMPONENT
+   MESSAGE FOLDER BADGE
+
+   IMPORTANT:
+   This receives message.mailFolder.
+
+   It does NOT receive the current page folder.
+========================================================= */
+
+const getFolderBadge = (
+    mailFolder
+) => {
+
+    const folder =
+        String(
+            mailFolder || ""
+        )
+            .trim()
+            .toLowerCase();
+
+    switch (folder) {
+
+        case "inbox":
+
+            return {
+
+                label: "Inbox",
+
+                icon: (
+                    <InboxIcon
+                        size={12}
+                    />
+                ),
+
+                className:
+                    "bg-indigo-50 text-indigo-600 border-indigo-100",
+
+            };
+
+
+        case "sent":
+
+            return {
+
+                label: "Sent",
+
+                icon: (
+                    <Send
+                        size={12}
+                    />
+                ),
+
+                className:
+                    "bg-blue-50 text-blue-600 border-blue-100",
+
+            };
+
+
+        case "drafts":
+
+            return {
+
+                label: "Draft",
+
+                icon: (
+                    <FileText
+                        size={12}
+                    />
+                ),
+
+                className:
+                    "bg-amber-50 text-amber-600 border-amber-100",
+
+            };
+
+
+        case "trash":
+
+            return {
+
+                label: "Trash",
+
+                icon: (
+                    <Trash2
+                        size={12}
+                    />
+                ),
+
+                className:
+                    "bg-red-50 text-red-600 border-red-100",
+
+            };
+
+
+        default:
+
+            return {
+
+                label: "Mail",
+
+                icon: (
+                    <Mail
+                        size={12}
+                    />
+                ),
+
+                className:
+                    "bg-gray-50 text-gray-600 border-gray-200",
+
+            };
+
+    }
+
+};
+
+
+/* =========================================================
+   MAIN MAIL FOLDER
 ========================================================= */
 
 const MailFolder = ({
@@ -370,7 +588,6 @@ const MailFolder = ({
         ] ||
         FOLDER_CONFIG.inbox;
 
-
     const FolderIcon =
         config.icon;
 
@@ -381,206 +598,401 @@ const MailFolder = ({
 
     const [
         messages,
-        setMessages
+        setMessages,
     ] = useState([]);
 
 
     const [
         selectedMessages,
-        setSelectedMessages
+        setSelectedMessages,
     ] = useState([]);
 
 
     const [
         selectedMessage,
-        setSelectedMessage
+        setSelectedMessage,
     ] = useState(null);
 
 
     const [
         loading,
-        setLoading
+        setLoading,
     ] = useState(true);
 
 
     const [
         refreshing,
-        setRefreshing
+        setRefreshing,
     ] = useState(false);
 
 
     const [
         actionLoading,
-        setActionLoading
+        setActionLoading,
     ] = useState(false);
 
 
     const [
         error,
-        setError
+        setError,
     ] = useState("");
 
 
     const [
         search,
-        setSearch
+        setSearch,
     ] = useState("");
 
 
     const [
         page,
-        setPage
+        setPage,
     ] = useState(1);
 
 
     const [
         pagination,
-        setPagination
+        setPagination,
     ] = useState({
+
         page: 1,
+
         limit: LIMIT,
+
         total: 0,
+
         totalPages: 1,
+
         hasNext: false,
+
         hasPrevious: false,
+
+    });
+
+
+    /* =====================================================
+       FOLDER COUNTS
+    ===================================================== */
+
+    const [
+        folderCounts,
+        setFolderCounts,
+    ] = useState({
+
+        inbox: 0,
+
+        sent: 0,
+
+        drafts: 0,
+
+        trash: 0,
+
     });
 
 
     /* =====================================================
        LOAD MESSAGES
+
+       IMPORTANT:
+
+       Inbox:
+           folder = "all"
+
+       Sent:
+           folder = "sent"
+
+       Drafts:
+           getDraftsApi()
+
+       Trash:
+           getTrashApi()
     ===================================================== */
 
-    const loadMessages = useCallback(
-        async ({
-            showLoading = true,
-            requestedPage = page,
-        } = {}) => {
+    const loadMessages =
+        useCallback(
+            async ({
+                showLoading = true,
+                requestedPage = page,
+            } = {}) => {
 
-            try {
+                try {
 
-                if (showLoading) {
-                    setLoading(true);
-                } else {
-                    setRefreshing(true);
-                }
+                    if (
+                        showLoading
+                    ) {
 
+                        setLoading(
+                            true
+                        );
 
-                setError("");
+                    } else {
 
+                        setRefreshing(
+                            true
+                        );
 
-                let response;
+                    }
 
+                    setError("");
 
-                /* -----------------------------------------
-                   INBOX / SENT
-                ----------------------------------------- */
-
-                if (
-                    folder === "inbox" ||
-                    folder === "sent"
-                ) {
-
-                    response =
-                        await getMessagesApi({
-                            folder,
-                            page:
-                                requestedPage,
-                            limit: LIMIT,
-                        });
-
-                }
+                    let response;
 
 
-                /* -----------------------------------------
-                   DRAFTS
-                ----------------------------------------- */
+                    /* =========================================
+                       INBOX
 
-                else if (
-                    folder === "drafts"
-                ) {
+                       MIXED MAILBOX
 
-                    response =
-                        await getDraftsApi();
+                       This is the main change.
+                    ========================================= */
 
-                }
+                    if (
+                        folder ===
+                        "inbox"
+                    ) {
+
+                        response =
+                            await getMessagesApi({
+
+                                folder:
+                                    "all",
+
+                                page:
+                                    requestedPage,
+
+                                limit:
+                                    LIMIT,
+
+                            });
+
+                    }
 
 
-                /* -----------------------------------------
-                   TRASH
-                ----------------------------------------- */
+                    /* =========================================
+                       SENT
+                    ========================================= */
 
-                else if (
-                    folder === "trash"
-                ) {
+                    else if (
+                        folder ===
+                        "sent"
+                    ) {
 
-                    response =
-                        await getTrashApi();
+                        response =
+                            await getMessagesApi({
 
-                }
+                                folder:
+                                    "sent",
+
+                                page:
+                                    requestedPage,
+
+                                limit:
+                                    LIMIT,
+
+                            });
+
+                    }
 
 
-                const data =
-                    normalizeMessages(
-                        response
+                    /* =========================================
+                       DRAFTS
+                    ========================================= */
+
+                    else if (
+                        folder ===
+                        "drafts"
+                    ) {
+
+                        response =
+                            await getDraftsApi();
+
+                    }
+
+
+                    /* =========================================
+                       TRASH
+                    ========================================= */
+
+                    else if (
+                        folder ===
+                        "trash"
+                    ) {
+
+                        response =
+                            await getTrashApi();
+
+                    }
+
+
+                    /* =========================================
+                       NORMALIZE
+                    ========================================= */
+
+                    const data =
+                        normalizeMessages(
+                            response
+                        );
+
+
+                    setMessages(
+                        data
                     );
 
 
-                setMessages(
-                    data
-                );
+                    setPagination(
+                        normalizePagination(
+                            response
+                        )
+                    );
 
 
-                setPagination(
-                    normalizePagination(
-                        response
-                    )
-                );
+                    setSelectedMessages(
+                        []
+                    );
 
 
-                /*
-                 * Clear selection after reload.
-                 */
-
-                setSelectedMessages(
-                    []
-                );
-
-
-            } catch (err) {
-
-                console.error(
-                    `Load ${folder} error:`,
+                } catch (
                     err
-                );
+                ) {
+
+                    console.error(
+                        `Load ${folder} error:`,
+                        err
+                    );
 
 
-                setError(
-                    err?.response
-                        ?.data
-                        ?.message ||
-                    err?.message ||
-                    `Unable to load ${config.label}.`
-                );
+                    setError(
+
+                        err?.response
+                            ?.data
+                            ?.message ||
+
+                        err?.message ||
+
+                        `Unable to load ${config.label}.`
+
+                    );
 
 
-            } finally {
+                } finally {
 
-                setLoading(false);
+                    setLoading(
+                        false
+                    );
 
-                setRefreshing(false);
+                    setRefreshing(
+                        false
+                    );
 
-            }
+                }
 
-        },
-        [
-            folder,
-            page,
-        ]
-    );
+            },
+            [
+                folder,
+                page,
+                config.label,
+            ]
+        );
 
 
     /* =====================================================
-       INITIAL / FOLDER CHANGE
+       LOAD FOLDER COUNTS
+
+       These remain separate because they represent
+       individual folder totals.
+    ===================================================== */
+
+    const loadFolderCounts =
+        useCallback(
+            async () => {
+
+                try {
+
+                    const [
+
+                        inboxResponse,
+
+                        sentResponse,
+
+                        draftsResponse,
+
+                        trashResponse,
+
+                    ] =
+                        await Promise.all([
+
+                            getMessagesApi({
+
+                                folder:
+                                    "all",
+
+                                page: 1,
+
+                                limit: 1,
+
+                            }),
+
+                            getMessagesApi({
+
+                                folder:
+                                    "sent",
+
+                                page: 1,
+
+                                limit: 1,
+
+                            }),
+
+                            getDraftsApi(),
+
+                            getTrashApi(),
+
+                        ]);
+
+
+                    setFolderCounts({
+
+                        inbox:
+                            normalizeTotal(
+                                inboxResponse
+                            ),
+
+                        sent:
+                            normalizeTotal(
+                                sentResponse
+                            ),
+
+                        drafts:
+                            normalizeTotal(
+                                draftsResponse
+                            ),
+
+                        trash:
+                            normalizeTotal(
+                                trashResponse
+                            ),
+
+                    });
+
+
+                } catch (
+                    countError
+                ) {
+
+                    console.warn(
+                        "Unable to load folder counts:",
+                        countError
+                    );
+
+                }
+
+            },
+            []
+        );
+
+
+    /* =====================================================
+       RESET WHEN FOLDER CHANGES
     ===================================================== */
 
     useEffect(() => {
@@ -593,19 +1005,46 @@ const MailFolder = ({
 
         setSelectedMessage(null);
 
-    }, [folder]);
+        setSearch("");
 
+    }, [
+        folder,
+    ]);
+
+
+    /* =====================================================
+       LOAD CURRENT FOLDER
+    ===================================================== */
 
     useEffect(() => {
 
         loadMessages({
-            showLoading: true,
-            requestedPage: page,
+
+            showLoading:
+                true,
+
+            requestedPage:
+                page,
+
         });
 
     }, [
         folder,
         page,
+        loadMessages,
+    ]);
+
+
+    /* =====================================================
+       LOAD COUNTS
+    ===================================================== */
+
+    useEffect(() => {
+
+        loadFolderCounts();
+
+    }, [
+        loadFolderCounts,
     ]);
 
 
@@ -614,104 +1053,147 @@ const MailFolder = ({
     ===================================================== */
 
     const filteredMessages =
-        useMemo(() => {
+        useMemo(
+            () => {
 
-            const query =
-                search
-                    .trim()
-                    .toLowerCase();
-
-
-            if (!query) {
-                return messages;
-            }
+                const query =
+                    search
+                        .trim()
+                        .toLowerCase();
 
 
-            return messages.filter(
-                (message) => {
+                if (!query) {
 
-                    const subject =
-                        getSubject(
-                            message
-                        ).toLowerCase();
-
-
-                    const body =
-                        getBodyPreview(
-                            message
-                        ).toLowerCase();
-
-
-                    const sender =
-                        getPersonName(
-                            message.sender
-                        ).toLowerCase();
-
-
-                    const email =
-                        getPersonEmail(
-                            message.sender
-                        ).toLowerCase();
-
-
-                    return (
-                        subject.includes(
-                            query
-                        ) ||
-                        body.includes(
-                            query
-                        ) ||
-                        sender.includes(
-                            query
-                        ) ||
-                        email.includes(
-                            query
-                        )
-                    );
+                    return messages;
 
                 }
-            );
 
-        }, [
-            messages,
-            search,
-        ]);
+
+                return messages.filter(
+                    (message) => {
+
+                        const subject =
+                            getSubject(
+                                message
+                            )
+                                .toLowerCase();
+
+
+                        const body =
+                            getBodyPreview(
+                                message
+                            )
+                                .toLowerCase();
+
+
+                        const sender =
+                            getPersonName(
+                                message.sender
+                            )
+                                .toLowerCase();
+
+
+                        const email =
+                            getPersonEmail(
+                                message.sender
+                            )
+                                .toLowerCase();
+
+
+                        const mailFolder =
+                            String(
+                                message?.mailFolder ||
+                                ""
+                            )
+                                .toLowerCase();
+
+
+                        const badge =
+                            getFolderBadge(
+                                message?.mailFolder
+                            )
+                                .label
+                                .toLowerCase();
+
+
+                        return (
+
+                            subject.includes(
+                                query
+                            ) ||
+
+                            body.includes(
+                                query
+                            ) ||
+
+                            sender.includes(
+                                query
+                            ) ||
+
+                            email.includes(
+                                query
+                            ) ||
+
+                            mailFolder.includes(
+                                query
+                            ) ||
+
+                            badge.includes(
+                                query
+                            )
+
+                        );
+
+                    }
+                );
+
+            },
+            [
+                messages,
+                search,
+            ]
+        );
 
 
     /* =====================================================
        SELECT MESSAGE
     ===================================================== */
 
-    const handleSelectMessage = (
-        messageId
-    ) => {
+    const handleSelectMessage =
+        (
+            messageId
+        ) => {
 
-        setSelectedMessages(
-            (previous) => {
+            setSelectedMessages(
+                (previous) => {
 
-                if (
-                    previous.includes(
-                        messageId
-                    )
-                ) {
+                    if (
+                        previous.includes(
+                            messageId
+                        )
+                    ) {
 
-                    return previous.filter(
-                        (id) =>
-                            id !== messageId
-                    );
+                        return previous.filter(
+                            (id) =>
+                                id !==
+                                messageId
+                        );
+
+                    }
+
+
+                    return [
+
+                        ...previous,
+
+                        messageId,
+
+                    ];
 
                 }
+            );
 
-
-                return [
-                    ...previous,
-                    messageId,
-                ];
-
-            }
-        );
-
-    };
+        };
 
 
     /* =====================================================
@@ -719,267 +1201,371 @@ const MailFolder = ({
     ===================================================== */
 
     const allVisibleSelected =
-        filteredMessages.length > 0 &&
+        filteredMessages.length >
+            0 &&
         filteredMessages.every(
             (message) =>
                 selectedMessages.includes(
-                    getMessageId(message)
+                    getMessageId(
+                        message
+                    )
                 )
         );
 
 
-    const handleSelectAll = () => {
+    const handleSelectAll =
+        () => {
 
-        if (allVisibleSelected) {
+            if (
+                allVisibleSelected
+            ) {
 
-            setSelectedMessages(
-                (previous) =>
-                    previous.filter(
-                        (id) =>
-                            !filteredMessages.some(
-                                (message) =>
-                                    getMessageId(
-                                        message
-                                    ) === id
-                            )
-                    )
-            );
+                setSelectedMessages(
+                    (previous) =>
+                        previous.filter(
+                            (id) =>
+                                !filteredMessages.some(
+                                    (message) =>
+                                        getMessageId(
+                                            message
+                                        ) ===
+                                        id
+                                )
+                        )
+                );
 
-            return;
-        }
-
-
-        const visibleIds =
-            filteredMessages
-                .map(
-                    getMessageId
-                )
-                .filter(Boolean);
-
-
-        setSelectedMessages(
-            (previous) => {
-
-                return [
-                    ...new Set([
-                        ...previous,
-                        ...visibleIds,
-                    ]),
-                ];
+                return;
 
             }
-        );
 
-    };
+
+            const visibleIds =
+                filteredMessages
+                    .map(
+                        getMessageId
+                    )
+                    .filter(Boolean);
+
+
+            setSelectedMessages(
+                (previous) => {
+
+                    return [
+
+                        ...new Set([
+
+                            ...previous,
+
+                            ...visibleIds,
+
+                        ]),
+
+                    ];
+
+                }
+            );
+
+        };
 
 
     /* =====================================================
        CLEAR SELECTION
     ===================================================== */
 
-    const clearSelection = () => {
+    const clearSelection =
+        () => {
 
-        setSelectedMessages(
-            []
-        );
+            setSelectedMessages(
+                []
+            );
 
-    };
+        };
 
 
     /* =====================================================
        OPEN MESSAGE
     ===================================================== */
 
-    const handleOpenMessage = async (
-        message
-    ) => {
-
-        setSelectedMessage(
+    const handleOpenMessage =
+        async (
             message
-        );
+        ) => {
 
-
-        const messageId =
-            getMessageId(
+            setSelectedMessage(
                 message
             );
 
 
-        /*
-         * Drafts should not be marked read.
-         */
-
-        if (
-            folder === "drafts" ||
-            folder === "trash"
-        ) {
-
-            return;
-
-        }
-
-
-        /*
-         * Mark unread message as read.
-         */
-
-        if (
-            message?.isRead === false ||
-            message?.read === false
-        ) {
-
-            try {
-
-                await markMessageAsReadApi(
-                    messageId
+            const messageId =
+                getMessageId(
+                    message
                 );
 
 
-                setMessages(
-                    (previous) =>
-                        previous.map(
-                            (item) => {
+            /*
+             * Draft and Trash messages
+             * should not be marked as read.
+             */
 
-                                if (
-                                    getMessageId(
-                                        item
-                                    ) !==
-                                    messageId
-                                ) {
-
-                                    return item;
-
-                                }
+            const messageFolder =
+                String(
+                    message?.mailFolder ||
+                    ""
+                )
+                    .toLowerCase();
 
 
-                                return {
-                                    ...item,
-                                    isRead: true,
-                                    read: true,
-                                };
+            if (
+                messageFolder ===
+                    "drafts" ||
+                messageFolder ===
+                    "trash"
+            ) {
 
-                            }
-                        )
-                );
-
-            } catch (error) {
-
-                console.warn(
-                    "Mark read failed:",
-                    error
-                );
+                return;
 
             }
 
-        }
 
-    };
+            if (
+                message?.isRead ===
+                    false ||
+                message?.read ===
+                    false
+            ) {
+
+                try {
+
+                    await markMessageAsReadApi(
+                        messageId
+                    );
+
+
+                    setMessages(
+                        (previous) =>
+                            previous.map(
+                                (item) => {
+
+                                    if (
+                                        getMessageId(
+                                            item
+                                        ) !==
+                                        messageId
+                                    ) {
+
+                                        return item;
+
+                                    }
+
+
+                                    return {
+
+                                        ...item,
+
+                                        isRead:
+                                            true,
+
+                                        read:
+                                            true,
+
+                                    };
+
+                                }
+                            )
+                    );
+
+
+                    setSelectedMessage(
+                        (previous) => {
+
+                            if (
+                                !previous ||
+                                getMessageId(
+                                    previous
+                                ) !==
+                                messageId
+                            ) {
+
+                                return previous;
+
+                            }
+
+
+                            return {
+
+                                ...previous,
+
+                                isRead:
+                                    true,
+
+                                read:
+                                    true,
+
+                            };
+
+                        }
+                    );
+
+
+                } catch (
+                    readError
+                ) {
+
+                    console.warn(
+                        "Mark read failed:",
+                        readError
+                    );
+
+                }
+
+            }
+
+        };
 
 
     /* =====================================================
-       DELETE SINGLE MESSAGE
+       DELETE SINGLE
     ===================================================== */
 
-    const handleDeleteSingle = async (
-        messageId
-    ) => {
+    const handleDeleteSingle =
+        async (
+            messageId
+        ) => {
 
-        if (
-            !messageId
-        ) {
-
-            return;
-
-        }
-
-
-        try {
-
-            setActionLoading(
-                true
-            );
-
-
-            if (
-                folder === "drafts"
-            ) {
-
-                await deleteDraftApi(
-                    messageId
-                );
-
-            } else if (
-                folder === "trash"
-            ) {
-
-                await permanentlyDeleteMessageApi(
-                    messageId
-                );
-
-            } else {
-
-                await moveMessageToTrashApi(
-                    messageId
-                );
-
+            if (!messageId) {
+                return;
             }
 
 
-            if (
-                selectedMessage &&
-                getMessageId(
-                    selectedMessage
-                ) === messageId
-            ) {
+            try {
 
-                setSelectedMessage(
-                    null
+                setActionLoading(
+                    true
                 );
 
-            }
+
+                /*
+                 * IMPORTANT:
+                 * Use the row's mailFolder
+                 * rather than the current page folder.
+                 */
+
+                const targetMessage =
+                    messages.find(
+                        (message) =>
+                            getMessageId(
+                                message
+                            ) ===
+                            messageId
+                    );
 
 
-            setSelectedMessages(
-                (previous) =>
-                    previous.filter(
-                        (id) =>
-                            id !== messageId
+                const messageFolder =
+                    String(
+                        targetMessage?.mailFolder ||
+                        folder
                     )
-            );
+                        .toLowerCase();
 
 
-            await loadMessages({
-                showLoading: false,
-                requestedPage: page,
-            });
+                if (
+                    messageFolder ===
+                    "drafts"
+                ) {
+
+                    await deleteDraftApi(
+                        messageId
+                    );
+
+                } else if (
+                    messageFolder ===
+                    "trash"
+                ) {
+
+                    await permanentlyDeleteMessageApi(
+                        messageId
+                    );
+
+                } else {
+
+                    await moveMessageToTrashApi(
+                        messageId
+                    );
+
+                }
 
 
-        } catch (error) {
+                if (
+                    selectedMessage &&
+                    getMessageId(
+                        selectedMessage
+                    ) ===
+                    messageId
+                ) {
 
-            console.error(
-                "Delete error:",
-                error
-            );
+                    setSelectedMessage(
+                        null
+                    );
 
-
-            alert(
-                error?.response
-                    ?.data
-                    ?.message ||
-                error?.message ||
-                "Unable to delete message."
-            );
+                }
 
 
-        } finally {
+                setSelectedMessages(
+                    (previous) =>
+                        previous.filter(
+                            (id) =>
+                                id !==
+                                messageId
+                        )
+                );
 
-            setActionLoading(
-                false
-            );
 
-        }
+                await loadMessages({
 
-    };
+                    showLoading:
+                        false,
+
+                    requestedPage:
+                        page,
+
+                });
+
+
+                await loadFolderCounts();
+
+
+            } catch (
+                deleteError
+            ) {
+
+                console.error(
+                    "Delete error:",
+                    deleteError
+                );
+
+
+                alert(
+
+                    deleteError?.response
+                        ?.data
+                        ?.message ||
+
+                    deleteError?.message ||
+
+                    "Unable to delete message."
+
+                );
+
+
+            } finally {
+
+                setActionLoading(
+                    false
+                );
+
+            }
+
+        };
 
 
     /* =====================================================
@@ -999,27 +1585,71 @@ const MailFolder = ({
             }
 
 
+            /*
+             * For the mixed Inbox/All screen,
+             * selected messages can belong to
+             * different folders.
+             */
+
+            const selectedMessageObjects =
+                messages.filter(
+                    (message) =>
+                        selectedMessages.includes(
+                            getMessageId(
+                                message
+                            )
+                        )
+                );
+
+
+            const hasTrash =
+                selectedMessageObjects.some(
+                    (message) =>
+                        String(
+                            message?.mailFolder ||
+                            ""
+                        )
+                            .toLowerCase() ===
+                        "trash"
+                );
+
+
+            const hasDraft =
+                selectedMessageObjects.some(
+                    (message) =>
+                        String(
+                            message?.mailFolder ||
+                            ""
+                        )
+                            .toLowerCase() ===
+                        "drafts"
+                );
+
+
             let confirmationText;
 
 
             if (
-                folder === "trash"
+                hasTrash &&
+                !hasDraft &&
+                selectedMessageObjects.every(
+                    (message) =>
+                        String(
+                            message?.mailFolder ||
+                            ""
+                        )
+                            .toLowerCase() ===
+                        "trash"
+                )
             ) {
 
                 confirmationText =
                     `Permanently delete ${selectedMessages.length} selected message(s)? This cannot be undone.`;
 
-            } else if (
-                folder === "drafts"
-            ) {
-
-                confirmationText =
-                    `Delete ${selectedMessages.length} selected draft(s)?`;
-
             } else {
 
                 confirmationText =
-                    `Move ${selectedMessages.length} selected message(s) to Trash?`;
+                    `Process ${selectedMessages.length} selected message(s)? Messages will be moved to Trash and drafts will be deleted.`;
 
             }
 
@@ -1042,52 +1672,59 @@ const MailFolder = ({
                 );
 
 
-                /*
-                 * We use your existing single-message
-                 * API endpoints in parallel.
-                 *
-                 * This means you don't need to add a
-                 * new bulk endpoint to the backend.
-                 */
+                await Promise.all(
 
-                if (
-                    folder === "drafts"
-                ) {
+                    selectedMessageObjects.map(
+                        async (
+                            message
+                        ) => {
 
-                    await Promise.all(
-                        selectedMessages.map(
-                            (messageId) =>
-                                deleteDraftApi(
-                                    messageId
+                            const messageId =
+                                getMessageId(
+                                    message
+                                );
+
+
+                            const messageFolder =
+                                String(
+                                    message?.mailFolder ||
+                                    ""
                                 )
-                        )
-                    );
+                                    .toLowerCase();
 
-                } else if (
-                    folder === "trash"
-                ) {
 
-                    await Promise.all(
-                        selectedMessages.map(
-                            (messageId) =>
-                                permanentlyDeleteMessageApi(
+                            if (
+                                messageFolder ===
+                                "drafts"
+                            ) {
+
+                                return deleteDraftApi(
                                     messageId
-                                )
-                        )
-                    );
+                                );
 
-                } else {
+                            }
 
-                    await Promise.all(
-                        selectedMessages.map(
-                            (messageId) =>
-                                moveMessageToTrashApi(
+
+                            if (
+                                messageFolder ===
+                                "trash"
+                            ) {
+
+                                return permanentlyDeleteMessageApi(
                                     messageId
-                                )
-                        )
-                    );
+                                );
 
-                }
+                            }
+
+
+                            return moveMessageToTrashApi(
+                                messageId
+                            );
+
+                        }
+                    )
+
+                );
 
 
                 setSelectedMessage(
@@ -1101,25 +1738,39 @@ const MailFolder = ({
 
 
                 await loadMessages({
-                    showLoading: false,
-                    requestedPage: page,
+
+                    showLoading:
+                        false,
+
+                    requestedPage:
+                        page,
+
                 });
 
 
-            } catch (error) {
+                await loadFolderCounts();
+
+
+            } catch (
+                bulkDeleteError
+            ) {
 
                 console.error(
                     "Bulk delete error:",
-                    error
+                    bulkDeleteError
                 );
 
 
                 alert(
-                    error?.response
+
+                    bulkDeleteError?.response
                         ?.data
                         ?.message ||
-                    error?.message ||
+
+                    bulkDeleteError?.message ||
+
                     "Unable to process selected messages."
+
                 );
 
 
@@ -1143,6 +1794,11 @@ const MailFolder = ({
             messageId
         ) => {
 
+            if (!messageId) {
+                return;
+            }
+
+
             try {
 
                 setActionLoading(
@@ -1159,7 +1815,8 @@ const MailFolder = ({
                     (previous) =>
                         previous.filter(
                             (id) =>
-                                id !== messageId
+                                id !==
+                                messageId
                         )
                 );
 
@@ -1168,7 +1825,8 @@ const MailFolder = ({
                     selectedMessage &&
                     getMessageId(
                         selectedMessage
-                    ) === messageId
+                    ) ===
+                    messageId
                 ) {
 
                     setSelectedMessage(
@@ -1179,25 +1837,39 @@ const MailFolder = ({
 
 
                 await loadMessages({
-                    showLoading: false,
-                    requestedPage: page,
+
+                    showLoading:
+                        false,
+
+                    requestedPage:
+                        page,
+
                 });
 
 
-            } catch (error) {
+                await loadFolderCounts();
+
+
+            } catch (
+                restoreError
+            ) {
 
                 console.error(
                     "Restore error:",
-                    error
+                    restoreError
                 );
 
 
                 alert(
-                    error?.response
+
+                    restoreError?.response
                         ?.data
                         ?.message ||
-                    error?.message ||
+
+                    restoreError?.message ||
+
                     "Unable to restore message."
+
                 );
 
 
@@ -1248,12 +1920,14 @@ const MailFolder = ({
 
 
                 await Promise.all(
+
                     selectedMessages.map(
                         (messageId) =>
                             restoreMessageApi(
                                 messageId
                             )
                     )
+
                 );
 
 
@@ -1268,25 +1942,39 @@ const MailFolder = ({
 
 
                 await loadMessages({
-                    showLoading: false,
-                    requestedPage: page,
+
+                    showLoading:
+                        false,
+
+                    requestedPage:
+                        page,
+
                 });
 
 
-            } catch (error) {
+                await loadFolderCounts();
+
+
+            } catch (
+                restoreError
+            ) {
 
                 console.error(
                     "Bulk restore error:",
-                    error
+                    restoreError
                 );
 
 
                 alert(
-                    error?.response
+
+                    restoreError?.response
                         ?.data
                         ?.message ||
-                    error?.message ||
+
+                    restoreError?.message ||
+
                     "Unable to restore selected messages."
+
                 );
 
 
@@ -1337,7 +2025,8 @@ const MailFolder = ({
                     selectedMessage &&
                     getMessageId(
                         selectedMessage
-                    ) === draftId
+                    ) ===
+                    draftId
                 ) {
 
                     setSelectedMessage(
@@ -1348,25 +2037,39 @@ const MailFolder = ({
 
 
                 await loadMessages({
-                    showLoading: false,
-                    requestedPage: page,
+
+                    showLoading:
+                        false,
+
+                    requestedPage:
+                        page,
+
                 });
 
 
-            } catch (error) {
+                await loadFolderCounts();
+
+
+            } catch (
+                sendError
+            ) {
 
                 console.error(
                     "Send draft error:",
-                    error
+                    sendError
                 );
 
 
                 alert(
-                    error?.response
+
+                    sendError?.response
                         ?.data
                         ?.message ||
-                    error?.message ||
+
+                    sendError?.message ||
+
                     "Unable to send draft."
+
                 );
 
 
@@ -1385,14 +2088,23 @@ const MailFolder = ({
        REFRESH
     ===================================================== */
 
-    const handleRefresh = () => {
+    const handleRefresh =
+        async () => {
 
-        loadMessages({
-            showLoading: false,
-            requestedPage: page,
-        });
+            await loadMessages({
 
-    };
+                showLoading:
+                    false,
+
+                requestedPage:
+                    page,
+
+            });
+
+
+            await loadFolderCounts();
+
+        };
 
 
     /* =====================================================
@@ -1438,19 +2150,7 @@ const MailFolder = ({
             if (
                 pagination.totalPages &&
                 page >=
-                    pagination.totalPages
-            ) {
-
-                return;
-
-            }
-
-
-            if (
-                pagination.hasNext ===
-                    false &&
-                pagination.totalPages <=
-                    page
+                pagination.totalPages
             ) {
 
                 return;
@@ -1484,9 +2184,17 @@ const MailFolder = ({
         async () => {
 
             await loadMessages({
-                showLoading: false,
-                requestedPage: page,
+
+                showLoading:
+                    false,
+
+                requestedPage:
+                    page,
+
             });
+
+
+            await loadFolderCounts();
 
         };
 
@@ -1504,7 +2212,8 @@ const MailFolder = ({
                 selectedMessage &&
                 getMessageId(
                     selectedMessage
-                ) === messageId
+                ) ===
+                messageId
             ) {
 
                 setSelectedMessage(
@@ -1518,17 +2227,38 @@ const MailFolder = ({
                 (previous) =>
                     previous.filter(
                         (id) =>
-                            id !== messageId
+                            id !==
+                            messageId
                     )
             );
 
 
             await loadMessages({
-                showLoading: false,
-                requestedPage: page,
+
+                showLoading:
+                    false,
+
+                requestedPage:
+                    page,
+
             });
 
+
+            await loadFolderCounts();
+
         };
+
+
+    /* =====================================================
+       CURRENT COUNT
+    ===================================================== */
+
+    const currentFolderCount =
+        Number(
+            folderCounts?.[
+                folder
+            ]
+        ) || 0;
 
 
     /* =====================================================
@@ -1537,27 +2267,32 @@ const MailFolder = ({
 
     if (
         loading &&
-        messages.length === 0
+        messages.length ===
+        0
     ) {
 
         return (
 
-            <div className="
-                flex
-                h-full
-                min-h-0
-                items-center
-                justify-center
-                rounded-2xl
-                bg-white
-            ">
-
-                <div className="
+            <div
+                className="
                     flex
-                    flex-col
+                    h-full
+                    min-h-0
                     items-center
-                    gap-3
-                ">
+                    justify-center
+                    rounded-2xl
+                    bg-white
+                "
+            >
+
+                <div
+                    className="
+                        flex
+                        flex-col
+                        items-center
+                        gap-3
+                    "
+                >
 
                     <Loader2
                         size={30}
@@ -1567,11 +2302,15 @@ const MailFolder = ({
                         "
                     />
 
-                    <span className="
-                        text-sm
-                        text-gray-500
-                    ">
-                        Loading {config.label}...
+                    <span
+                        className="
+                            text-sm
+                            text-gray-500
+                        "
+                    >
+                        Loading{" "}
+                        {config.label}
+                        ...
                     </span>
 
                 </div>
@@ -1589,39 +2328,46 @@ const MailFolder = ({
 
     if (
         error &&
-        messages.length === 0
+        messages.length ===
+        0
     ) {
 
         return (
 
-            <div className="
-                flex
-                h-full
-                min-h-0
-                items-center
-                justify-center
-                rounded-2xl
-                bg-white
-                p-6
-            ">
+            <div
+                className="
+                    flex
+                    h-full
+                    min-h-0
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-white
+                    p-6
+                "
+            >
 
-                <div className="
-                    max-w-md
-                    text-center
-                ">
+                <div
+                    className="
+                        max-w-md
+                        text-center
+                    "
+                >
 
-                    <div className="
-                        mx-auto
-                        mb-4
-                        flex
-                        h-12
-                        w-12
-                        items-center
-                        justify-center
-                        rounded-full
-                        bg-red-50
-                        text-red-600
-                    ">
+                    <div
+                        className="
+                            mx-auto
+                            mb-4
+                            flex
+                            h-12
+                            w-12
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-red-50
+                            text-red-600
+                        "
+                    >
 
                         <AlertCircle
                             size={24}
@@ -1630,20 +2376,25 @@ const MailFolder = ({
                     </div>
 
 
-                    <h2 className="
-                        text-lg
-                        font-semibold
-                        text-gray-800
-                    ">
-                        Unable to load {config.label}
+                    <h2
+                        className="
+                            text-lg
+                            font-semibold
+                            text-gray-800
+                        "
+                    >
+                        Unable to load{" "}
+                        {config.label}
                     </h2>
 
 
-                    <p className="
-                        mt-2
-                        text-sm
-                        text-gray-500
-                    ">
+                    <p
+                        className="
+                            mt-2
+                            text-sm
+                            text-gray-500
+                        "
+                    >
                         {error}
                     </p>
 
@@ -1652,8 +2403,13 @@ const MailFolder = ({
                         type="button"
                         onClick={() =>
                             loadMessages({
-                                showLoading: true,
-                                requestedPage: page,
+
+                                showLoading:
+                                    true,
+
+                                requestedPage:
+                                    page,
+
                             })
                         }
                         className="
@@ -1695,60 +2451,68 @@ const MailFolder = ({
 
     return (
 
-        <div className="
-            flex
-            h-full
-            min-h-0
-            flex-col
-            overflow-hidden
-            rounded-2xl
-            border
-            border-gray-200
-            bg-white
-            shadow-sm
-        ">
+        <div
+            className="
+                flex
+                h-full
+                min-h-0
+                flex-col
+                overflow-hidden
+                rounded-2xl
+                border
+                border-gray-200
+                bg-white
+                shadow-sm
+            "
+        >
 
             {/* =================================================
                 HEADER
             ================================================= */}
 
-            <div className="
-                shrink-0
-                border-b
-                border-gray-200
-                bg-white
-                px-4
-                py-3
-            ">
+            <div
+                className="
+                    shrink-0
+                    border-b
+                    border-gray-200
+                    bg-white
+                    px-4
+                    py-3
+                "
+            >
 
-                <div className="
-                    flex
-                    flex-wrap
-                    items-center
-                    justify-between
-                    gap-3
-                ">
-
-                    {/* LEFT */}
-
-                    <div className="
+                <div
+                    className="
                         flex
-                        min-w-0
+                        flex-wrap
                         items-center
+                        justify-between
                         gap-3
-                    ">
+                    "
+                >
 
-                        <div className="
+                    <div
+                        className="
                             flex
-                            h-10
-                            w-10
-                            shrink-0
+                            min-w-0
                             items-center
-                            justify-center
-                            rounded-xl
-                            bg-indigo-50
-                            text-indigo-600
-                        ">
+                            gap-3
+                        "
+                    >
+
+                        <div
+                            className="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+                                bg-indigo-50
+                                text-indigo-600
+                            "
+                        >
 
                             <FolderIcon
                                 size={20}
@@ -1757,31 +2521,71 @@ const MailFolder = ({
                         </div>
 
 
-                        <div className="
-                            min-w-0
-                        ">
+                        <div
+                            className="
+                                min-w-0
+                            "
+                        >
 
-                            <h1 className="
-                                truncate
-                                text-lg
-                                font-bold
-                                text-gray-900
-                            ">
+                            <div
+                                className="
+                                    flex
+                                    items-center
+                                    gap-2
+                                "
+                            >
 
-                                {config.label}
+                                <h1
+                                    className="
+                                        truncate
+                                        text-lg
+                                        font-bold
+                                        text-gray-900
+                                    "
+                                >
+                                    {
+                                        config.label
+                                    }
+                                </h1>
 
-                            </h1>
+
+                                <span
+                                    className="
+                                        inline-flex
+                                        h-6
+                                        min-w-[24px]
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-indigo-100
+                                        px-2
+                                        text-[10px]
+                                        font-bold
+                                        text-indigo-700
+                                    "
+                                >
+                                    {
+                                        currentFolderCount >
+                                        99
+                                            ? "99+"
+                                            : currentFolderCount
+                                    }
+                                </span>
+
+                            </div>
 
 
-                            <p className="
-                                hidden
-                                text-xs
-                                text-gray-500
-                                sm:block
-                            ">
-
-                                {config.description}
-
+                            <p
+                                className="
+                                    hidden
+                                    text-xs
+                                    text-gray-500
+                                    sm:block
+                                "
+                            >
+                                {
+                                    config.description
+                                }
                             </p>
 
                         </div>
@@ -1789,46 +2593,36 @@ const MailFolder = ({
                     </div>
 
 
-                    {/* RIGHT */}
+                    <button
+                        type="button"
+                        onClick={
+                            handleRefresh
+                        }
+                        disabled={
+                            refreshing
+                        }
+                        title="Refresh"
+                        className="
+                            rounded-lg
+                            p-2
+                            text-gray-500
+                            hover:bg-gray-100
+                            hover:text-indigo-600
+                            disabled:cursor-not-allowed
+                            disabled:opacity-50
+                        "
+                    >
 
-                    <div className="
-                        flex
-                        items-center
-                        gap-1
-                    ">
-
-                        <button
-                            type="button"
-                            onClick={
-                                handleRefresh
-                            }
-                            disabled={
+                        <RefreshCw
+                            size={18}
+                            className={
                                 refreshing
+                                    ? "animate-spin"
+                                    : ""
                             }
-                            title="Refresh"
-                            className="
-                                rounded-lg
-                                p-2
-                                text-gray-500
-                                hover:bg-gray-100
-                                hover:text-indigo-600
-                                disabled:cursor-not-allowed
-                                disabled:opacity-50
-                            "
-                        >
+                        />
 
-                            <RefreshCw
-                                size={18}
-                                className={
-                                    refreshing
-                                        ? "animate-spin"
-                                        : ""
-                                }
-                            />
-
-                        </button>
-
-                    </div>
+                    </button>
 
                 </div>
 
@@ -1837,20 +2631,26 @@ const MailFolder = ({
 
             {/* =================================================
                 SEARCH
+
+                No folder navigation row.
             ================================================= */}
 
-            <div className="
-                shrink-0
-                border-b
-                border-gray-100
-                bg-white
-                px-4
-                py-3
-            ">
+            <div
+                className="
+                    shrink-0
+                    border-b
+                    border-gray-100
+                    bg-white
+                    px-4
+                    py-3
+                "
+            >
 
-                <div className="
-                    relative
-                ">
+                <div
+                    className="
+                        relative
+                    "
+                >
 
                     <Search
                         size={17}
@@ -1867,13 +2667,21 @@ const MailFolder = ({
 
                     <input
                         type="text"
-                        value={search}
-                        onChange={(event) =>
+                        value={
+                            search
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setSearch(
                                 event.target.value
                             )
                         }
-                        placeholder={`Search ${config.label.toLowerCase()}...`}
+                        placeholder={
+                            folder === "inbox"
+                                ? "Search all mail..."
+                                : `Search ${config.label.toLowerCase()}...`
+                        }
                         className="
                             w-full
                             rounded-xl
@@ -1900,7 +2708,9 @@ const MailFolder = ({
                         <button
                             type="button"
                             onClick={() =>
-                                setSearch("")
+                                setSearch(
+                                    ""
+                                )
                             }
                             className="
                                 absolute
@@ -1932,27 +2742,29 @@ const MailFolder = ({
                 SELECTION TOOLBAR
             ================================================= */}
 
-            <div className="
-                flex
-                shrink-0
-                flex-nowrap
-                items-center
-                justify-between
-                gap-2
-                border-b
-                border-gray-200
-                bg-gray-50
-                px-3
-                py-2
-            ">
-
-                <div className="
+            <div
+                className="
                     flex
+                    shrink-0
+                    flex-nowrap
                     items-center
+                    justify-between
                     gap-2
-                ">
+                    border-b
+                    border-gray-200
+                    bg-gray-50
+                    px-3
+                    py-2
+                "
+            >
 
-                    {/* SELECT ALL */}
+                <div
+                    className="
+                        flex
+                        items-center
+                        gap-2
+                    "
+                >
 
                     <button
                         type="button"
@@ -1979,17 +2791,19 @@ const MailFolder = ({
                         "
                     >
 
-                        <span className="
-                            flex
-                            h-4
-                            w-4
-                            items-center
-                            justify-center
-                            rounded
-                            border
-                            border-gray-300
-                            bg-white
-                        ">
+                        <span
+                            className="
+                                flex
+                                h-4
+                                w-4
+                                items-center
+                                justify-center
+                                rounded
+                                border
+                                border-gray-300
+                                bg-white
+                            "
+                        >
 
                             {allVisibleSelected && (
 
@@ -2005,14 +2819,18 @@ const MailFolder = ({
                         </span>
 
 
-                        <span className="
-                            hidden
-                            sm:inline
-                        ">
+                        <span
+                            className="
+                                hidden
+                                sm:inline
+                            "
+                        >
 
-                            {allVisibleSelected
-                                ? "Unselect All"
-                                : "Select All"}
+                            {
+                                allVisibleSelected
+                                    ? "Unselect All"
+                                    : "Select All"
+                            }
 
                         </span>
 
@@ -2022,15 +2840,17 @@ const MailFolder = ({
                     {selectedMessages.length >
                         0 && (
 
-                        <span className="
-                            rounded-full
-                            bg-indigo-100
-                            px-2.5
-                            py-1
-                            text-xs
-                            font-semibold
-                            text-indigo-700
-                        ">
+                        <span
+                            className="
+                                rounded-full
+                                bg-indigo-100
+                                px-2.5
+                                py-1
+                                text-xs
+                                font-semibold
+                                text-indigo-700
+                            "
+                        >
 
                             {
                                 selectedMessages.length
@@ -2044,87 +2864,21 @@ const MailFolder = ({
                 </div>
 
 
-                {/* BULK ACTIONS */}
-
                 {selectedMessages.length >
                     0 && (
 
-                    <div className="
-                        flex
-                        items-center
-                        gap-1
-                    ">
+                    <div
+                        className="
+                            flex
+                            items-center
+                            gap-1
+                        "
+                    >
 
-                        {/* TRASH / DELETE */}
+                        {/* RESTORE FROM TRASH */}
 
-                        {folder !== "trash" && (
-
-                            <button
-                                type="button"
-                                onClick={
-                                    handleBulkDelete
-                                }
-                                disabled={
-                                    actionLoading
-                                }
-                                title={
-                                    folder ===
-                                    "drafts"
-                                        ? "Delete selected drafts"
-                                        : "Move selected messages to Trash"
-                                }
-                                className="
-                                    flex
-                                    items-center
-                                    gap-1.5
-                                    rounded-lg
-                                    px-2.5
-                                    py-2
-                                    text-xs
-                                    font-semibold
-                                    text-red-600
-                                    hover:bg-red-50
-                                    disabled:opacity-50
-                                "
-                            >
-
-                                {actionLoading ? (
-
-                                    <Loader2
-                                        size={15}
-                                        className="
-                                            animate-spin
-                                        "
-                                    />
-
-                                ) : (
-
-                                    <Trash2
-                                        size={15}
-                                    />
-
-                                )}
-
-                                <span className="
-                                    hidden
-                                    sm:inline
-                                ">
-
-                                    {folder ===
-                                    "drafts"
-                                        ? "Delete"
-                                        : "Trash"}
-
-                                </span>
-
-                            </button>
-
-                        )}
-
-
-                        {/* RESTORE */}
-
-                        {folder === "trash" && (
+                        {folder ===
+                            "trash" && (
 
                             <button
                                 type="button"
@@ -2167,10 +2921,12 @@ const MailFolder = ({
 
                                 )}
 
-                                <span className="
-                                    hidden
-                                    sm:inline
-                                ">
+                                <span
+                                    className="
+                                        hidden
+                                        sm:inline
+                                    "
+                                >
                                     Restore
                                 </span>
 
@@ -2179,51 +2935,71 @@ const MailFolder = ({
                         )}
 
 
-                        {/* PERMANENT DELETE */}
+                        {/* DELETE */}
 
-                        {folder === "trash" && (
+                        <button
+                            type="button"
+                            onClick={
+                                handleBulkDelete
+                            }
+                            disabled={
+                                actionLoading
+                            }
+                            title={
+                                folder === "trash"
+                                    ? "Permanently delete selected messages"
+                                    : "Move selected messages to Trash"
+                            }
+                            className="
+                                flex
+                                items-center
+                                gap-1.5
+                                rounded-lg
+                                px-2.5
+                                py-2
+                                text-xs
+                                font-semibold
+                                text-red-600
+                                hover:bg-red-50
+                                disabled:opacity-50
+                            "
+                        >
 
-                            <button
-                                type="button"
-                                onClick={
-                                    handleBulkDelete
-                                }
-                                disabled={
-                                    actionLoading
-                                }
-                                title="Permanently delete selected messages"
-                                className="
-                                    flex
-                                    items-center
-                                    gap-1.5
-                                    rounded-lg
-                                    px-2.5
-                                    py-2
-                                    text-xs
-                                    font-semibold
-                                    text-red-600
-                                    hover:bg-red-50
-                                    disabled:opacity-50
-                                "
-                            >
+                            {actionLoading ? (
+
+                                <Loader2
+                                    size={15}
+                                    className="
+                                        animate-spin
+                                    "
+                                />
+
+                            ) : (
 
                                 <Trash2
                                     size={15}
                                 />
 
-                                <span className="
+                            )}
+
+                            <span
+                                className="
                                     hidden
                                     sm:inline
-                                ">
-                                    Delete Permanently
-                                </span>
+                                "
+                            >
 
-                            </button>
+                                {
+                                    folder ===
+                                    "trash"
+                                        ? "Delete Permanently"
+                                        : "Trash"
+                                }
 
-                        )}
+                            </span>
 
+                        </button>
 
-                        {/* CLEAR */}
 
                         <button
                             type="button"
@@ -2256,67 +3032,78 @@ const MailFolder = ({
                 MAIN CONTENT
             ================================================= */}
 
-            <div className="
-                flex
-                min-h-0
-                flex-1
-                overflow-hidden
-            ">
+            <div
+                className="
+                    flex
+                    min-h-0
+                    flex-1
+                    overflow-hidden
+                "
+            >
 
                 {/* =================================================
                     MESSAGE LIST
                 ================================================= */}
 
-                <div className={`
-                    flex
-                    min-h-0
-                    min-w-0
-                    flex-1
-                    flex-col
-                    overflow-hidden
-                    ${
-                        selectedMessage
-                            ? "hidden lg:flex lg:w-[45%] lg:max-w-[520px] lg:flex-none lg:border-r lg:border-gray-200"
-                            : "w-full"
-                    }
-                `}>
-
-                    {/* LIST */}
-
-                    <div className="
+                <div
+                    className={`
+                        flex
                         min-h-0
+                        min-w-0
                         flex-1
-                        overflow-y-auto
-                        overflow-x-hidden
-                    ">
+                        flex-col
+                        overflow-hidden
+
+                        ${
+                            selectedMessage
+                                ? "hidden lg:flex lg:w-[45%] lg:max-w-[520px] lg:flex-none lg:border-r lg:border-gray-200"
+                                : "w-full"
+                        }
+                    `}
+                >
+
+                    <div
+                        className="
+                            min-h-0
+                            flex-1
+                            overflow-y-auto
+                            overflow-x-hidden
+                        "
+                    >
 
                         {filteredMessages.length ===
-                        0 ? (
+                            0 ? (
 
-                            <div className="
-                                flex
-                                min-h-[350px]
-                                items-center
-                                justify-center
-                                p-8
-                            ">
+                            <div
+                                className="
+                                    flex
+                                    min-h-[350px]
+                                    items-center
+                                    justify-center
+                                    p-8
+                                "
+                            >
 
-                                <div className="
-                                    text-center
-                                ">
+                                <div
+                                    className="
+                                        text-center
+                                    "
+                                >
 
-                                    <div className="
-                                        mx-auto
-                                        mb-4
-                                        flex
-                                        h-14
-                                        w-14
-                                        items-center
-                                        justify-center
-                                        rounded-full
-                                        bg-gray-100
-                                        text-gray-400
-                                    ">
+                                    <div
+                                        className="
+                                            mx-auto
+                                            mb-4
+                                            flex
+                                            h-14
+                                            w-14
+                                            items-center
+                                            justify-center
+                                            rounded-full
+                                            bg-gray-100
+                                            text-gray-400
+                                        "
+                                    >
 
                                         <FolderIcon
                                             size={25}
@@ -2325,28 +3112,39 @@ const MailFolder = ({
                                     </div>
 
 
-                                    <h3 className="
-                                        text-sm
-                                        font-semibold
-                                        text-gray-700
-                                    ">
+                                    <h3
+                                        className="
+                                            text-sm
+                                            font-semibold
+                                            text-gray-700
+                                        "
+                                    >
 
-                                        {search
-                                            ? "No messages found"
-                                            : `No ${config.label.toLowerCase()} messages`}
+                                        {
+                                            search
+                                                ? "No messages found"
+                                                : folder ===
+                                                    "inbox"
+                                                    ? "No messages"
+                                                    : `No ${config.label.toLowerCase()} messages`
+                                        }
 
                                     </h3>
 
 
-                                    <p className="
-                                        mt-1
-                                        text-xs
-                                        text-gray-400
-                                    ">
+                                    <p
+                                        className="
+                                            mt-1
+                                            text-xs
+                                            text-gray-400
+                                        "
+                                    >
 
-                                        {search
-                                            ? "Try a different search."
-                                            : "You're all caught up."}
+                                        {
+                                            search
+                                                ? "Try a different search."
+                                                : "You're all caught up."
+                                        }
 
                                     </p>
 
@@ -2375,34 +3173,54 @@ const MailFolder = ({
                                             );
 
 
-                                        const opened =
-                                            selectedMessage &&
-                                            getMessageId(
-                                                selectedMessage
-                                            ) ===
-                                                messageId;
+                                        /*
+                                         * =================================================
+                                         * IMPORTANT
+                                         *
+                                         * Badge is determined from THIS message.
+                                         *
+                                         * NOT:
+                                         *
+                                         * getFolderBadge(folder)
+                                         *
+                                         * Instead:
+                                         *
+                                         * getFolderBadge(message.mailFolder)
+                                         * =================================================
+                                         */
+
+                                        const messageFolder =
+                                            String(
+                                                message?.mailFolder ||
+                                                ""
+                                            )
+                                                .trim()
+                                                .toLowerCase();
 
 
-                                        const sender =
-                                            folder ===
-                                            "sent"
-                                                ? message.to?.[0] ||
-                                                  message.to
-                                                : message.sender;
+                                        const messageBadge =
+                                            getFolderBadge(
+                                                messageFolder
+                                            );
+
+
+                                        const isRead =
+                                            message?.isRead ===
+                                                true ||
+                                            message?.read ===
+                                                true;
 
 
                                         const senderName =
-                                            folder ===
-                                            "sent"
-                                                ? getPersonEmail(
-                                                      sender
-                                                  ) ||
-                                                  getPersonName(
-                                                      sender
-                                                  )
-                                                : getPersonName(
-                                                      sender
-                                                  );
+                                            getPersonName(
+                                                message?.sender
+                                            );
+
+
+                                        const subject =
+                                            getSubject(
+                                                message
+                                            );
 
 
                                         const preview =
@@ -2411,12 +3229,10 @@ const MailFolder = ({
                                             );
 
 
-                                        const hasAttachment =
-                                            Array.isArray(
-                                                message.attachments
-                                            ) &&
-                                            message.attachments.length >
-                                                0;
+                                        const sentDate =
+                                            message?.sentAt ||
+                                            message?.createdAt ||
+                                            message?.updatedAt;
 
 
                                         return (
@@ -2427,258 +3243,429 @@ const MailFolder = ({
                                                 }
                                                 className={`
                                                     group
-                                                    flex
-                                                    items-start
-                                                    gap-2
                                                     border-b
                                                     border-gray-100
-                                                    px-3
-                                                    py-3
                                                     transition
+
                                                     ${
-                                                        opened
+                                                        selected
                                                             ? "bg-indigo-50"
-                                                            : selected
-                                                            ? "bg-gray-50"
                                                             : "bg-white hover:bg-gray-50"
                                                     }
                                                 `}
                                             >
 
-                                                {/* CHECKBOX */}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleSelectMessage(
-                                                            messageId
-                                                        )
-                                                    }
+                                                <div
                                                     className="
-                                                        mt-1
                                                         flex
-                                                        h-5
-                                                        w-5
-                                                        shrink-0
-                                                        items-center
-                                                        justify-center
-                                                        rounded
-                                                        border
-                                                        border-gray-300
-                                                        bg-white
-                                                        hover:border-indigo-400
+                                                        items-stretch
                                                     "
                                                 >
 
-                                                    {selected && (
+                                                    {/* =========================================
+                                                        CHECKBOX
+                                                    ========================================= */}
 
-                                                        <Check
-                                                            size={13}
-                                                            className="
-                                                                text-indigo-600
-                                                            "
-                                                        />
-
-                                                    )}
-
-                                                </button>
-
-
-                                                {/* AVATAR */}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleOpenMessage(
-                                                            message
-                                                        )
-                                                    }
-                                                    className="
-                                                        mt-0.5
-                                                        flex
-                                                        h-9
-                                                        w-9
-                                                        shrink-0
-                                                        items-center
-                                                        justify-center
-                                                        rounded-full
-                                                        bg-indigo-600
-                                                        text-xs
-                                                        font-semibold
-                                                        text-white
-                                                    "
-                                                >
-
-                                                    {getInitial(
-                                                        sender
-                                                    )}
-
-                                                </button>
-
-
-                                                {/* MESSAGE */}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleOpenMessage(
-                                                            message
-                                                        )
-                                                    }
-                                                    className="
-                                                        min-w-0
-                                                        flex-1
-                                                        text-left
-                                                    "
-                                                >
-
-                                                    <div className="
-                                                        flex
-                                                        items-center
-                                                        justify-between
-                                                        gap-2
-                                                    ">
-
-                                                        <span className={`
-                                                            min-w-0
-                                                            truncate
-                                                            text-sm
-                                                            ${
-                                                                message.isRead ===
-                                                                    false ||
-                                                                message.read ===
-                                                                    false
-                                                                    ? "font-bold text-gray-900"
-                                                                    : "font-medium text-gray-700"
-                                                            }
-                                                        `}>
-
-                                                            {
-                                                                senderName
-                                                            }
-
-                                                        </span>
-
-
-                                                        <span className="
+                                                    <div
+                                                        className="
+                                                            flex
+                                                            w-10
                                                             shrink-0
-                                                            text-[11px]
-                                                            text-gray-400
-                                                        ">
-
-                                                            {formatShortDate(
-                                                                message.sentAt ||
-                                                                message.createdAt ||
-                                                                message.updatedAt
-                                                            )}
-
-                                                        </span>
-
-                                                    </div>
-
-
-                                                    <div className="
-                                                        mt-0.5
-                                                        flex
-                                                        items-center
-                                                        gap-2
-                                                    ">
-
-                                                        <span className="
-                                                            min-w-0
-                                                            truncate
-                                                            text-sm
-                                                            font-medium
-                                                            text-gray-800
-                                                        ">
-
-                                                            {
-                                                                getSubject(
-                                                                    message
-                                                                )
-                                                            }
-
-                                                        </span>
-
-
-                                                        {hasAttachment && (
-
-                                                            <Paperclip
-                                                                size={13}
-                                                                className="
-                                                                    shrink-0
-                                                                    text-gray-400
-                                                                "
-                                                            />
-
-                                                        )}
-
-                                                    </div>
-
-
-                                                    {preview && (
-
-                                                        <p className="
-                                                            mt-0.5
-                                                            truncate
-                                                            text-xs
-                                                            text-gray-400
-                                                        ">
-
-                                                            {
-                                                                preview
-                                                            }
-
-                                                        </p>
-
-                                                    )}
-
-                                                </button>
-
-
-                                                {/* QUICK ACTION */}
-
-                                                <div className="
-                                                    hidden
-                                                    items-center
-                                                    gap-1
-                                                    group-hover:flex
-                                                ">
-
-                                                    {folder ===
-                                                        "trash" && (
+                                                            items-start
+                                                            justify-center
+                                                            pt-5
+                                                        "
+                                                    >
 
                                                         <button
                                                             type="button"
                                                             onClick={() =>
-                                                                handleRestoreSingle(
+                                                                handleSelectMessage(
                                                                     messageId
                                                                 )
                                                             }
-                                                            disabled={
-                                                                actionLoading
-                                                            }
-                                                            title="Restore"
                                                             className="
-                                                                rounded-lg
-                                                                p-1.5
-                                                                text-gray-400
-                                                                hover:bg-indigo-50
-                                                                hover:text-indigo-600
+                                                                flex
+                                                                h-4
+                                                                w-4
+                                                                items-center
+                                                                justify-center
+                                                                rounded
+                                                                border
+                                                                border-gray-300
+                                                                bg-white
+                                                                hover:border-indigo-500
                                                             "
+                                                            aria-label={
+                                                                selected
+                                                                    ? "Unselect message"
+                                                                    : "Select message"
+                                                            }
                                                         >
 
-                                                            <RotateCcw
-                                                                size={15}
-                                                            />
+                                                            {selected && (
+
+                                                                <Check
+                                                                    size={12}
+                                                                    className="
+                                                                        text-indigo-600
+                                                                    "
+                                                                />
+
+                                                            )}
 
                                                         </button>
 
-                                                    )}
+                                                    </div>
 
 
-                                                    {folder !==
-                                                        "trash" && (
+                                                    {/* =========================================
+                                                        MESSAGE
+                                                    ========================================= */}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            handleOpenMessage(
+                                                                message
+                                                            )
+                                                        }
+                                                        className="
+                                                            min-w-0
+                                                            flex-1
+                                                            text-left
+                                                        "
+                                                    >
+
+                                                        <div
+                                                            className="
+                                                                flex
+                                                                min-w-0
+                                                                gap-3
+                                                                py-3.5
+                                                                pr-2
+                                                            "
+                                                        >
+
+                                                            {/* AVATAR */}
+
+                                                            <div
+                                                                className={`
+                                                                    flex
+                                                                    h-9
+                                                                    w-9
+                                                                    shrink-0
+                                                                    items-center
+                                                                    justify-center
+                                                                    rounded-full
+                                                                    text-xs
+                                                                    font-bold
+
+                                                                    ${
+                                                                        isRead
+                                                                            ? "bg-gray-100 text-gray-500"
+                                                                            : "bg-indigo-100 text-indigo-700"
+                                                                    }
+                                                                `}
+                                                            >
+
+                                                                {getInitial(
+                                                                    message?.sender
+                                                                )}
+
+                                                            </div>
+
+
+                                                            {/* CONTENT */}
+
+                                                            <div
+                                                                className="
+                                                                    min-w-0
+                                                                    flex-1
+                                                                "
+                                                            >
+
+                                                                {/* TOP LINE */}
+
+                                                                <div
+                                                                    className="
+                                                                        flex
+                                                                        min-w-0
+                                                                        items-center
+                                                                        justify-between
+                                                                        gap-2
+                                                                    "
+                                                                >
+
+                                                                    <div
+                                                                        className="
+                                                                            flex
+                                                                            min-w-0
+                                                                            items-center
+                                                                            gap-2
+                                                                        "
+                                                                    >
+
+                                                                        <span
+                                                                            className={`
+                                                                                truncate
+                                                                                text-sm
+
+                                                                                ${
+                                                                                    isRead
+                                                                                        ? "font-medium text-gray-700"
+                                                                                        : "font-bold text-gray-900"
+                                                                                }
+                                                                            `}
+                                                                        >
+                                                                            {
+                                                                                senderName
+                                                                            }
+                                                                        </span>
+
+
+                                                                        {/* =================================
+                                                                            PER-MESSAGE FOLDER BADGE
+                                                                        ================================= */}
+
+                                                                        <span
+                                                                            className={`
+                                                                                inline-flex
+                                                                                shrink-0
+                                                                                items-center
+                                                                                gap-1
+                                                                                rounded-full
+                                                                                border
+                                                                                px-2
+                                                                                py-0.5
+                                                                                text-[10px]
+                                                                                font-semibold
+                                                                                ${messageBadge.className}
+                                                                            `}
+                                                                        >
+
+                                                                            {
+                                                                                messageBadge.icon
+                                                                            }
+
+                                                                            {
+                                                                                messageBadge.label
+                                                                            }
+
+                                                                        </span>
+
+                                                                    </div>
+
+
+                                                                    <span
+                                                                        className="
+                                                                            shrink-0
+                                                                            text-[10px]
+                                                                            text-gray-400
+                                                                        "
+                                                                    >
+                                                                        {
+                                                                            formatShortDate(
+                                                                                sentDate
+                                                                            )
+                                                                        }
+                                                                    </span>
+
+                                                                </div>
+
+
+                                                                {/* SUBJECT */}
+
+                                                                <div
+                                                                    className={`
+                                                                        mt-1
+                                                                        truncate
+                                                                        text-sm
+
+                                                                        ${
+                                                                            isRead
+                                                                                ? "font-medium text-gray-700"
+                                                                                : "font-bold text-gray-900"
+                                                                        }
+                                                                    `}
+                                                                >
+                                                                    {
+                                                                        subject
+                                                                    }
+                                                                </div>
+
+
+                                                                {/* PREVIEW */}
+
+                                                                {preview && (
+
+                                                                    <div
+                                                                        className="
+                                                                            mt-1
+                                                                            truncate
+                                                                            text-xs
+                                                                            text-gray-400
+                                                                        "
+                                                                    >
+                                                                        {
+                                                                            preview
+                                                                        }
+                                                                    </div>
+
+                                                                )}
+
+
+                                                                {/* META */}
+
+                                                                <div
+                                                                    className="
+                                                                        mt-2
+                                                                        flex
+                                                                        items-center
+                                                                        gap-2
+                                                                    "
+                                                                >
+
+                                                                    {message?.attachments?.length >
+                                                                        0 && (
+
+                                                                        <span
+                                                                            className="
+                                                                                inline-flex
+                                                                                items-center
+                                                                                gap-1
+                                                                                text-[10px]
+                                                                                text-gray-400
+                                                                            "
+                                                                        >
+
+                                                                            <Paperclip
+                                                                                size={
+                                                                                    12
+                                                                                }
+                                                                            />
+
+                                                                            {
+                                                                                message.attachments.length
+                                                                            }
+
+                                                                        </span>
+
+                                                                    )}
+
+
+                                                                    {messageFolder ===
+                                                                        "drafts" && (
+
+                                                                        <span
+                                                                            className="
+                                                                                text-[10px]
+                                                                                font-medium
+                                                                                text-amber-600
+                                                                            "
+                                                                        >
+                                                                            Draft message
+                                                                        </span>
+
+                                                                    )}
+
+                                                                </div>
+
+                                                            </div>
+
+                                                        </div>
+
+                                                    </button>
+
+
+                                                    {/* =========================================
+                                                        ACTIONS
+                                                    ========================================= */}
+
+                                                    <div
+                                                        className="
+                                                            flex
+                                                            shrink-0
+                                                            items-center
+                                                            pr-2
+                                                        "
+                                                    >
+
+                                                        {/* RESTORE */}
+
+                                                        {messageFolder ===
+                                                            "trash" && (
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleRestoreSingle(
+                                                                        messageId
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    actionLoading
+                                                                }
+                                                                title="Restore"
+                                                                className="
+                                                                    rounded-lg
+                                                                    p-1.5
+                                                                    text-gray-400
+                                                                    hover:bg-indigo-50
+                                                                    hover:text-indigo-600
+                                                                    disabled:opacity-50
+                                                                "
+                                                            >
+
+                                                                <RotateCcw
+                                                                    size={
+                                                                        15
+                                                                    }
+                                                                />
+
+                                                            </button>
+
+                                                        )}
+
+
+                                                        {/* SEND DRAFT */}
+
+                                                        {messageFolder ===
+                                                            "drafts" && (
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleSendDraft(
+                                                                        messageId
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    actionLoading
+                                                                }
+                                                                title="Send draft"
+                                                                className="
+                                                                    rounded-lg
+                                                                    p-1.5
+                                                                    text-gray-400
+                                                                    hover:bg-green-50
+                                                                    hover:text-green-600
+                                                                    disabled:opacity-50
+                                                                "
+                                                            >
+
+                                                                <Send
+                                                                    size={
+                                                                        15
+                                                                    }
+                                                                />
+
+                                                            </button>
+
+                                                        )}
+
+
+                                                        {/* DELETE */}
 
                                                         <button
                                                             type="button"
@@ -2691,9 +3678,9 @@ const MailFolder = ({
                                                                 actionLoading
                                                             }
                                                             title={
-                                                                folder ===
-                                                                "drafts"
-                                                                    ? "Delete draft"
+                                                                messageFolder ===
+                                                                "trash"
+                                                                    ? "Delete permanently"
                                                                     : "Move to trash"
                                                             }
                                                             className="
@@ -2702,16 +3689,19 @@ const MailFolder = ({
                                                                 text-gray-400
                                                                 hover:bg-red-50
                                                                 hover:text-red-600
+                                                                disabled:opacity-50
                                                             "
                                                         >
 
                                                             <Trash2
-                                                                size={15}
+                                                                size={
+                                                                    15
+                                                                }
                                                             />
 
                                                         </button>
 
-                                                    )}
+                                                    </div>
 
                                                 </div>
 
@@ -2733,39 +3723,53 @@ const MailFolder = ({
                         PAGINATION
                     ================================================= */}
 
-                    <div className="
-                        flex
-                        shrink-0
-                        items-center
-                        justify-between
-                        border-t
-                        border-gray-200
-                        bg-white
-                        px-3
-                        py-2
-                    ">
+                    <div
+                        className="
+                            flex
+                            shrink-0
+                            items-center
+                            justify-between
+                            border-t
+                            border-gray-200
+                            bg-white
+                            px-3
+                            py-2
+                        "
+                    >
 
-                        <span className="
-                            text-xs
-                            text-gray-500
-                        ">
+                        <span
+                            className="
+                                text-xs
+                                text-gray-500
+                            "
+                        >
 
-                            {pagination.total > 0
-                                ? `Page ${page}${pagination.totalPages ? ` of ${pagination.totalPages}` : ""}`
-                                : `${filteredMessages.length} messages`}
+                            {pagination.total >
+                            0
+
+                                ? `Page ${page} of ${pagination.totalPages}`
+
+                                : `${filteredMessages.length} messages`
+
+                            }
 
                         </span>
 
 
-                        {folder !== "drafts" &&
-                            folder !==
-                                "trash" && (
+                        {(
+                            folder ===
+                                "inbox" ||
+                            folder ===
+                                "sent"
+                        ) && (
 
-                            <div className="
-                                flex
-                                items-center
-                                gap-1
-                            ">
+                            <div
+                                className="
+                                    flex
+                                    items-center
+                                    gap-1
+                                "
+                            >
 
                                 <button
                                     type="button"
@@ -2773,7 +3777,8 @@ const MailFolder = ({
                                         handlePreviousPage
                                     }
                                     disabled={
-                                        page <= 1
+                                        page <=
+                                        1
                                     }
                                     className="
                                         rounded-lg
@@ -2792,16 +3797,16 @@ const MailFolder = ({
                                 </button>
 
 
-                                <span className="
-                                    min-w-[50px]
-                                    text-center
-                                    text-xs
-                                    font-medium
-                                    text-gray-600
-                                ">
-
+                                <span
+                                    className="
+                                        min-w-[50px]
+                                        text-center
+                                        text-xs
+                                        font-medium
+                                        text-gray-600
+                                    "
+                                >
                                     {page}
-
                                 </span>
 
 
@@ -2813,7 +3818,7 @@ const MailFolder = ({
                                     disabled={
                                         pagination.totalPages
                                             ? page >=
-                                              pagination.totalPages
+                                                pagination.totalPages
                                             : !pagination.hasNext
                                     }
                                     className="
@@ -2847,32 +3852,39 @@ const MailFolder = ({
 
                 {selectedMessage && (
 
-                    <div className="
-                        flex
-                        min-h-0
-                        min-w-0
-                        flex-1
-                        overflow-hidden
-                    ">
+                    <div
+                        className="
+                            flex
+                            min-h-0
+                            min-w-0
+                            flex-1
+                            overflow-hidden
+                        "
+                    >
 
                         <MessageViewer
                             message={
                                 selectedMessage
                             }
+
                             onClose={() =>
                                 setSelectedMessage(
                                     null
                                 )
                             }
+
                             onMessageDeleted={
                                 handleMessageDeleted
                             }
+
                             onMessageUpdated={
                                 handleMessageUpdated
                             }
+
                             showCloseButton={
                                 true
                             }
+
                         />
 
                     </div>
@@ -2882,20 +3894,33 @@ const MailFolder = ({
             </div>
 
         </div>
+
     );
+
 };
 
 
 /* =========================================================
    INBOX
+
+   This screen displays:
+
+   [Inbox]
+   [Sent]
+   [Draft]
+   [Trash]
+
+   based on message.mailFolder.
 ========================================================= */
 
 export const Inbox = () => {
 
     return (
+
         <MailFolder
             folder="inbox"
         />
+
     );
 
 };
@@ -2908,9 +3933,11 @@ export const Inbox = () => {
 export const Sent = () => {
 
     return (
+
         <MailFolder
             folder="sent"
         />
+
     );
 
 };
@@ -2923,9 +3950,11 @@ export const Sent = () => {
 export const Drafts = () => {
 
     return (
+
         <MailFolder
             folder="drafts"
         />
+
     );
 
 };
@@ -2938,16 +3967,13 @@ export const Drafts = () => {
 export const Trash = () => {
 
     return (
+
         <MailFolder
             folder="trash"
         />
+
     );
 
 };
-
-
-/* =========================================================
-   DEFAULT
-========================================================= */
 
 export default MailFolder;

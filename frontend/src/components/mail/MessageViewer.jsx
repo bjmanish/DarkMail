@@ -5,6 +5,7 @@ import {
     Reply,
     ReplyAll,
     Forward,
+    Pencil,
     Trash2,
     RotateCcw,
     Paperclip,
@@ -69,36 +70,72 @@ const MessageViewer = ({
     ========================================================= */
 
     if (!message) {
+
         return (
-    <div
-        className="
-            flex
-            h-full
-            min-h-0
-            w-full
-            flex-col
-            overflow-hidden
-            bg-white
-        "
-    >
+            <div
+                className="
+                    flex
+                    h-full
+                    min-h-0
+                    w-full
+                    flex-col
+                    overflow-hidden
+                    bg-white
+                "
+            >
 
-        {/* MESSAGE HEADER */}
-        <div
-            className="
-                flex
-                h-14
-                shrink-0
-                items-center
-                justify-between
-                border-b
-                border-gray-200
-                bg-gray-50
-                px-4
-            "
-        >
-            <div className="flex items-center gap-0">
+                {/* MESSAGE HEADER */}
 
-                {showCloseButton && (
+                <div
+                    className="
+                        flex
+                        h-14
+                        shrink-0
+                        items-center
+                        justify-between
+                        border-b
+                        border-gray-200
+                        bg-gray-50
+                        px-4
+                    "
+                >
+
+                    <div className="flex items-center gap-0">
+
+                        {showCloseButton && (
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="
+                                    rounded-lg
+                                    p-2
+                                    text-gray-500
+                                    hover:bg-gray-200
+                                "
+                            >
+                                <ArrowLeft size={18} />
+                            </button>
+                        )}
+
+                        <Mail
+                            size={18}
+                            className="shrink-0 text-gray-600"
+                        />
+
+                        <h2
+                            className="
+                                truncate
+                                text-base
+                                font-medium
+                                text-gray-800
+                            "
+                        >
+                            No message selected
+                        </h2>
+
+                    </div>
+
+
                     <button
                         type="button"
                         onClick={onClose}
@@ -109,596 +146,27 @@ const MessageViewer = ({
                             hover:bg-gray-200
                         "
                     >
-                        <ArrowLeft size={18} />
+                        <X size={20} />
                     </button>
-                )}
 
-                <Mail
-                    size={18}
-                    className="shrink-0 text-gray-600"
-                />
-
-                <h2
-                    className="
-                        truncate
-                        text-base
-                        font-medium
-                        text-gray-800
-                    "
-                >
-                    {message.subject || "(No Subject)"}
-                </h2>
-
-            </div>
-
-            <button
-                type="button"
-                onClick={onClose}
-                className="
-                    rounded-lg
-                    p-2
-                    text-gray-500
-                    hover:bg-gray-200
-                "
-            >
-                <X size={20} />
-            </button>
-        </div>
+                </div>
 
 
-        {/* SINGLE MESSAGE CONTENT */}
-        <div
-            className="
-                min-h-0
-                flex-1
-                overflow-y-auto
-                overflow-x-hidden
-                px-4
-                py-4
-            "
-        >
-
-            {/* MESSAGE INFORMATION */}
-            <div
-                className="
-                    rounded-lg
-                    bg-gray-100
-                "
-            >
-
-                {/* SENDER */}
                 <div
                     className="
                         flex
+                        flex-1
                         items-center
-                        gap-3
-                        border-b
-                        border-gray-200
-                        px-4
-                        py-3
-                    "
-                >
-
-                    <div
-                        className="
-                            flex
-                            h-10
-                            w-10
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-full
-                            bg-indigo-600
-                            text-sm
-                            font-semibold
-                            text-white
-                        "
-                    >
-                        {getInitial(message.sender)}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-
-                        <div className="flex flex-wrap gap-2">
-
-                            <span
-                                className="
-                                    font-semibold
-                                    text-gray-800
-                                "
-                            >
-                                {getPersonName(
-                                    message.sender
-                                )}
-                            </span>
-
-                            <span
-                                className="
-                                    break-all
-                                    text-sm
-                                    text-gray-500
-                                "
-                            >
-                                {getPersonEmail(
-                                    message.sender
-                                )}
-                            </span>
-
-                        </div>
-
-                        <div
-                            className="
-                                mt-1
-                                text-xs
-                                text-gray-400
-                            "
-                        >
-                            {formatDate(
-                                message.sentAt ||
-                                message.createdAt
-                            )}
-                        </div>
-
-                    </div>
-
-
-                    {/* ACTIONS */}
-
-                    <div className="flex items-center gap-1">
-
-                        {!isTrash && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setShowReply(true)
-                                }
-                                className="
-                                    rounded-lg
-                                    p-2
-                                    text-gray-500
-                                    hover:bg-white
-                                    hover:text-indigo-600
-                                "
-                                title="Reply"
-                            >
-                                <Reply size={18} />
-                            </button>
-                        )}
-
-                        {isTrash ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={handleRestore}
-                                    disabled={actionLoading}
-                                    className="
-                                        rounded-lg
-                                        p-2
-                                        text-gray-500
-                                        hover:bg-white
-                                        hover:text-green-600
-                                    "
-                                    title="Restore"
-                                >
-                                    <RotateCcw size={18} />
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={
-                                        handlePermanentDelete
-                                    }
-                                    disabled={actionLoading}
-                                    className="
-                                        rounded-lg
-                                        p-2
-                                        text-gray-500
-                                        hover:bg-white
-                                        hover:text-red-600
-                                    "
-                                    title="Delete permanently"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleTrash}
-                                disabled={actionLoading}
-                                className="
-                                    rounded-lg
-                                    p-2
-                                    text-gray-500
-                                    hover:bg-white
-                                    hover:text-red-600
-                                "
-                                title="Move to trash"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        )}
-
-                    </div>
-
-                </div>
-
-
-                {/* RECIPIENTS */}
-                <div
-                    className="
-                        px-4
-                        py-3
-                    "
-                >
-
-                    <div
-                        className="
-                            flex
-                            flex-wrap
-                            items-center
-                            gap-2
-                        "
-                    >
-
-                        <span
-                            className="
-                                mr-1
-                                text-xs
-                                font-medium
-                                text-gray-500
-                            "
-                        >
-                            To:
-                        </span>
-
-                        {toRecipients.map(
-                            (person, index) =>
-                                renderRecipientChip(
-                                    person,
-                                    index
-                                )
-                        )}
-
-                    </div>
-
-
-                    <button
-                        type="button"
-                        onClick={() =>
-                            setShowDetails(
-                                !showDetails
-                            )
-                        }
-                        className="
-                            mt-3
-                            text-sm
-                            font-medium
-                            text-blue-600
-                            hover:text-blue-700
-                        "
-                    >
-                        {showDetails
-                            ? "Hide details"
-                            : "Show details"}
-                    </button>
-
-
-                    {showDetails && (
-                        <div
-                            className="
-                                mt-3
-                                space-y-2
-                                border-t
-                                border-gray-200
-                                pt-3
-                            "
-                        >
-
-                            {renderRecipientSection(
-                                "To",
-                                toRecipients
-                            )}
-
-                            {renderRecipientSection(
-                                "Cc",
-                                ccRecipients
-                            )}
-
-                            {renderRecipientSection(
-                                "Bcc",
-                                bccRecipients
-                            )}
-
-                        </div>
-                    )}
-
-                </div>
-
-            </div>
-
-
-            {/* ATTACHMENTS */}
-
-            {attachments.length > 0 && (
-                <div className="mt-4">
-
-                    <div
-                        className="
-                            grid
-                            grid-cols-1
-                            gap-3
-                            md:grid-cols-2
-                        "
-                    >
-
-                        {visibleAttachments.map(
-                            (
-                                attachment,
-                                index
-                            ) => {
-
-                                const filename =
-                                    getAttachmentName(
-                                        attachment,
-                                        index
-                                    );
-
-                                const extension =
-                                    getFileExtension(
-                                        filename
-                                    );
-
-                                return (
-                                    <button
-                                        key={index}
-                                        type="button"
-                                        onClick={() =>
-                                            handleDownloadAttachment(
-                                                attachment,
-                                                index
-                                            )
-                                        }
-                                        className="
-                                            flex
-                                            items-center
-                                            gap-3
-                                            rounded-lg
-                                            bg-gray-100
-                                            p-3
-                                            text-left
-                                            hover:bg-gray-200
-                                        "
-                                    >
-
-                                        <div
-                                            className="
-                                                flex
-                                                h-12
-                                                w-12
-                                                shrink-0
-                                                items-center
-                                                justify-center
-                                                rounded
-                                                bg-yellow-400
-                                                text-xs
-                                                font-semibold
-                                                text-white
-                                            "
-                                        >
-                                            {extension}
-                                        </div>
-
-                                        <div className="min-w-0 flex-1">
-
-                                            <div
-                                                className="
-                                                    truncate
-                                                    text-sm
-                                                    font-medium
-                                                    text-gray-800
-                                                "
-                                            >
-                                                {filename}
-                                            </div>
-
-                                            <div
-                                                className="
-                                                    mt-1
-                                                    text-xs
-                                                    text-gray-500
-                                                "
-                                            >
-                                                {getAttachmentSize(
-                                                    attachment
-                                                )}
-                                            </div>
-
-                                        </div>
-
-                                        <Download
-                                            size={17}
-                                            className="
-                                                shrink-0
-                                                text-gray-500
-                                            "
-                                        />
-
-                                    </button>
-                                );
-                            }
-                        )}
-
-                    </div>
-
-
-                    <div
-                        className="
-                            mt-3
-                            flex
-                            items-center
-                            gap-4
-                        "
-                    >
-
-                        {attachments.length > 2 && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setShowAllAttachments(
-                                        !showAllAttachments
-                                    )
-                                }
-                                className="
-                                    text-sm
-                                    font-medium
-                                    text-blue-600
-                                "
-                            >
-                                {showAllAttachments
-                                    ? "Show fewer attachments"
-                                    : `Show all ${attachments.length} attachments`}
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={
-                                handleDownloadAll
-                            }
-                            className="
-                                text-sm
-                                font-medium
-                                text-blue-600
-                            "
-                        >
-                            Download all
-                        </button>
-
-                    </div>
-
-                </div>
-            )}
-
-
-            {/* MESSAGE BODY */}
-
-            <div
-                className="
-                    py-7
-                "
-            >
-                <div
-                    className="
-                        whitespace-pre-wrap
-                        break-words
+                        justify-center
                         text-sm
-                        leading-7
-                        text-gray-800
+                        text-gray-400
                     "
                 >
-                    {message.body ||
-                        "(No message content)"}
+                    Select a message to view it.
                 </div>
+
             </div>
-
-
-            {/* REPLY */}
-
-            {showReply && !isTrash && (
-                <div
-                    className="
-                        rounded-xl
-                        border
-                        border-gray-200
-                        bg-gray-50
-                        p-4
-                    "
-                >
-
-                    <textarea
-                        value={replyBody}
-                        onChange={(event) =>
-                            setReplyBody(
-                                event.target.value
-                            )
-                        }
-                        rows={5}
-                        placeholder="Write your reply..."
-                        className="
-                            w-full
-                            rounded-lg
-                            border
-                            border-gray-200
-                            bg-white
-                            p-3
-                            text-sm
-                            outline-none
-                            focus:border-indigo-500
-                        "
-                    />
-
-                    <div
-                        className="
-                            mt-3
-                            flex
-                            justify-end
-                            gap-2
-                        "
-                    >
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setShowReply(false);
-                                setReplyBody("");
-                            }}
-                            className="
-                                rounded-lg
-                                px-4
-                                py-2
-                                text-sm
-                                text-gray-600
-                                hover:bg-gray-200
-                            "
-                        >
-                            Cancel
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={handleReply}
-                            disabled={
-                                actionLoading ||
-                                !replyBody.trim()
-                            }
-                            className="
-                                flex
-                                items-center
-                                gap-2
-                                rounded-lg
-                                bg-indigo-600
-                                px-4
-                                py-2
-                                text-sm
-                                font-semibold
-                                text-white
-                                disabled:opacity-50
-                            "
-                        >
-                            <Send size={15} />
-                            Send Reply
-                        </button>
-
-                    </div>
-
-                </div>
-            )}
-
-        </div>
-
-    </div>
-);
+        );
     }
 
 
@@ -735,7 +203,7 @@ const MessageViewer = ({
 
         if (typeof person === "string") {
             return person;
-                }
+        }
 
         return (
             person.email ||
@@ -783,10 +251,6 @@ const MessageViewer = ({
     const bccRecipients =
         normalizeRecipients(message.bcc);
 
-
-    /* =========================================================
-       ALL RECIPIENTS
-    ========================================================= */
 
     const allRecipients = [
         ...toRecipients,
@@ -861,6 +325,34 @@ const MessageViewer = ({
             }
         );
     };
+
+
+    /* =========================================================
+       MESSAGE STATUS
+       
+       IMPORTANT:
+       
+       Draft is detected using:
+       
+       message.status === "DRAFT"
+    ========================================================= */
+
+    const isDraft =
+        String(
+            message?.status || ""
+        )
+            .trim()
+            .toUpperCase() ===
+        "DRAFT";
+
+
+    /* =========================================================
+       TRASH STATUS
+    ========================================================= */
+
+    const isTrash =
+        Array.isArray(message.deletedBy) &&
+        message.deletedBy.length > 0;
 
 
     /* =========================================================
@@ -994,12 +486,33 @@ const MessageViewer = ({
 
 
     /* =========================================================
-       TRASH STATUS
+       EDIT DRAFT
     ========================================================= */
 
-    const isTrash =
-        Array.isArray(message.deletedBy) &&
-        message.deletedBy.length > 0;
+    const handleEditDraft = () => {
+
+        if (!message?._id) {
+            alert(
+                "Draft ID is missing."
+            );
+
+            return;
+        }
+
+
+        /*
+         * Navigate to Compose page
+         * with the draft ID.
+         *
+         * ComposeModal can use this
+         * draftId to load the draft.
+         */
+
+        window.location.href =
+            `/user/compose?draftId=${encodeURIComponent(
+                message._id
+            )}`;
+    };
 
 
     /* =========================================================
@@ -1020,6 +533,7 @@ const MessageViewer = ({
                 );
             }
 
+
             if (
                 downloadingAttachment !==
                 null
@@ -1027,7 +541,11 @@ const MessageViewer = ({
                 return;
             }
 
-            setDownloadingAttachment(index);
+
+            setDownloadingAttachment(
+                index
+            );
+
 
             const filename =
                 getAttachmentName(
@@ -1035,11 +553,13 @@ const MessageViewer = ({
                     index
                 );
 
+
             const response =
                 await downloadAttachmentApi(
                     message._id,
                     index
                 );
+
 
             const contentType =
                 response?.headers?.[
@@ -1049,6 +569,7 @@ const MessageViewer = ({
                 attachment?.mimetype ||
                 "application/octet-stream";
 
+
             const blob =
                 new Blob(
                     [response.data],
@@ -1057,36 +578,46 @@ const MessageViewer = ({
                     }
                 );
 
+
             const downloadUrl =
                 window.URL.createObjectURL(
                     blob
                 );
 
+
             const link =
                 document.createElement("a");
+
 
             link.href =
                 downloadUrl;
 
+
             link.download =
                 filename;
 
+
             link.style.display =
                 "none";
+
 
             document.body.appendChild(
                 link
             );
 
+
             link.click();
+
 
             document.body.removeChild(
                 link
             );
 
+
             window.URL.revokeObjectURL(
                 downloadUrl
             );
+
 
         } catch (error) {
 
@@ -1095,13 +626,16 @@ const MessageViewer = ({
                 error
             );
 
+
             let errorMessage =
                 "Unable to download attachment.";
+
 
             try {
 
                 const responseData =
                     error?.response?.data;
+
 
                 if (
                     responseData instanceof Blob
@@ -1109,6 +643,7 @@ const MessageViewer = ({
 
                     const text =
                         await responseData.text();
+
 
                     try {
 
@@ -1143,7 +678,10 @@ const MessageViewer = ({
                 );
             }
 
-            alert(errorMessage);
+
+            alert(
+                errorMessage
+            );
 
         } finally {
 
@@ -1198,10 +736,12 @@ const MessageViewer = ({
 
             setActionLoading(true);
 
+
             const response =
                 await moveMessageToTrashApi(
                     message._id
                 );
+
 
             if (!response?.success) {
 
@@ -1210,6 +750,7 @@ const MessageViewer = ({
                     "Unable to move message to trash."
                 );
             }
+
 
             if (onMessageDeleted) {
 
@@ -1224,6 +765,7 @@ const MessageViewer = ({
                 "Move to trash error:",
                 error
             );
+
 
             alert(
                 error?.response?.data?.message ||
@@ -1248,10 +790,12 @@ const MessageViewer = ({
 
             setActionLoading(true);
 
+
             const response =
                 await restoreMessageApi(
                     message._id
                 );
+
 
             if (!response?.success) {
 
@@ -1260,6 +804,7 @@ const MessageViewer = ({
                     "Unable to restore message."
                 );
             }
+
 
             if (onMessageUpdated) {
                 onMessageUpdated();
@@ -1271,6 +816,7 @@ const MessageViewer = ({
                 "Restore error:",
                 error
             );
+
 
             alert(
                 error?.response?.data?.message ||
@@ -1297,18 +843,22 @@ const MessageViewer = ({
                     "Are you sure you want to permanently delete this message?"
                 );
 
+
             if (!confirmed) {
                 return;
             }
+
 
             try {
 
                 setActionLoading(true);
 
+
                 const response =
                     await permanentlyDeleteMessageApi(
                         message._id
                     );
+
 
                 if (!response?.success) {
 
@@ -1317,6 +867,7 @@ const MessageViewer = ({
                         "Unable to permanently delete message."
                     );
                 }
+
 
                 if (onMessageDeleted) {
 
@@ -1331,6 +882,7 @@ const MessageViewer = ({
                     "Permanent delete error:",
                     error
                 );
+
 
                 alert(
                     error?.response?.data?.message ||
@@ -1355,15 +907,18 @@ const MessageViewer = ({
             return;
         }
 
+
         try {
 
             setActionLoading(true);
+
 
             const response =
                 await replyToMessageApi(
                     message._id,
                     replyBody.trim()
                 );
+
 
             if (!response?.success) {
 
@@ -1373,9 +928,11 @@ const MessageViewer = ({
                 );
             }
 
+
             setReplyBody("");
 
             setShowReply(false);
+
 
             alert(
                 "Reply sent successfully."
@@ -1387,6 +944,7 @@ const MessageViewer = ({
                 "Reply error:",
                 error
             );
+
 
             alert(
                 error?.response?.data?.message ||
@@ -1415,6 +973,7 @@ const MessageViewer = ({
 
         const email =
             getPersonEmail(person);
+
 
         return (
             <div
@@ -1452,6 +1011,7 @@ const MessageViewer = ({
                     {getInitial(person)}
                 </span>
 
+
                 <span
                     className="
                         max-w-[230px]
@@ -1466,6 +1026,7 @@ const MessageViewer = ({
                 >
                     {email || name}
                 </span>
+
 
                 <button
                     type="button"
@@ -1482,12 +1043,17 @@ const MessageViewer = ({
                     "
                     title="Email"
                     onClick={() => {
-                        window.location.href =
-                            `mailto:${email}`;
+
+                        if (email) {
+
+                            window.location.href =
+                                `mailto:${email}`;
+                        }
                     }}
                 >
                     <Mail size={12} />
                 </button>
+
 
                 <button
                     type="button"
@@ -1504,7 +1070,9 @@ const MessageViewer = ({
                     "
                     title="Copy email"
                     onClick={() => {
+
                         if (email) {
+
                             navigator.clipboard
                                 ?.writeText(email);
                         }
@@ -1531,6 +1099,7 @@ const MessageViewer = ({
             return null;
         }
 
+
         return (
             <div
                 className="
@@ -1553,6 +1122,7 @@ const MessageViewer = ({
                     {label}:
                 </div>
 
+
                 <div
                     className="
                         flex
@@ -1561,6 +1131,7 @@ const MessageViewer = ({
                         gap-1.5
                     "
                 >
+
                     {recipients.map(
                         (
                             person,
@@ -1571,6 +1142,7 @@ const MessageViewer = ({
                                 index
                             )
                     )}
+
                 </div>
 
             </div>
@@ -1639,6 +1211,7 @@ const MessageViewer = ({
                         </button>
                     )}
 
+
                     <Mail
                         size={18}
                         className="
@@ -1646,6 +1219,7 @@ const MessageViewer = ({
                             text-gray-600
                         "
                     />
+
 
                     <h2
                         className="
@@ -1712,9 +1286,9 @@ const MessageViewer = ({
                     "
                 >
 
-                    {/* -------------------------------------------------
+                    {/* =================================================
                         TOP SENDER ROW
-                    ------------------------------------------------- */}
+                    ================================================= */}
 
                     <div
                         className="
@@ -1779,6 +1353,7 @@ const MessageViewer = ({
                                     )}
                                 </span>
 
+
                                 {getPersonEmail(
                                     message.sender
                                 ) && (
@@ -1789,17 +1364,37 @@ const MessageViewer = ({
                                             text-gray-500
                                         "
                                     >
-                                        {
-                                            getPersonEmail(
-                                                message.sender
-                                            )
-                                        }
+                                        {getPersonEmail(
+                                            message.sender
+                                        )}
                                     </span>
                                 )}
 
                             </div>
 
                         </div>
+
+
+                        {/* DRAFT STATUS */}
+
+                        {isDraft && (
+                            <span
+                                className="
+                                    hidden
+                                    shrink-0
+                                    rounded-full
+                                    bg-yellow-100
+                                    px-2
+                                    py-1
+                                    text-[11px]
+                                    font-medium
+                                    text-yellow-700
+                                    sm:inline-flex
+                                "
+                            >
+                                Draft
+                            </span>
+                        )}
 
 
                         {/* ATTACHMENT INDICATOR */}
@@ -1833,86 +1428,125 @@ const MessageViewer = ({
                         </span>
 
 
-                        {/* REPLY */}
+                        {/* =================================================
+                            DRAFT EDIT / NORMAL MESSAGE ACTIONS
+                        ================================================= */}
 
-                        {!isTrash && (
+                        {isDraft ? (
+
+                            /* -----------------------------------------
+                               DRAFT
+                            ----------------------------------------- */
+
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setShowReply(
-                                        true
-                                    )
+                                onClick={
+                                    handleEditDraft
                                 }
                                 className="
                                     rounded-lg
                                     p-1.5
                                     text-gray-600
+                                    transition
                                     hover:bg-white
                                     hover:text-indigo-600
                                 "
-                                title="Reply"
+                                title="Edit draft"
+                                aria-label="Edit draft"
                             >
-                                <Reply
+                                <Pencil
                                     size={18}
                                 />
                             </button>
+
+                        ) : (
+
+                            /* -----------------------------------------
+                               NORMAL MESSAGE
+                            ----------------------------------------- */
+
+                            !isTrash && (
+                                <>
+                                    {/* REPLY */}
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowReply(
+                                                true
+                                            )
+                                        }
+                                        className="
+                                            rounded-lg
+                                            p-1.5
+                                            text-gray-600
+                                            hover:bg-white
+                                            hover:text-indigo-600
+                                        "
+                                        title="Reply"
+                                    >
+                                        <Reply
+                                            size={18}
+                                        />
+                                    </button>
+
+
+                                    {/* REPLY ALL */}
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowReply(
+                                                true
+                                            )
+                                        }
+                                        className="
+                                            hidden
+                                            rounded-lg
+                                            p-1.5
+                                            text-gray-600
+                                            hover:bg-white
+                                            hover:text-indigo-600
+                                            sm:block
+                                        "
+                                        title="Reply all"
+                                    >
+                                        <ReplyAll
+                                            size={18}
+                                        />
+                                    </button>
+
+
+                                    {/* FORWARD */}
+
+                                    <button
+                                        type="button"
+                                        className="
+                                            hidden
+                                            rounded-lg
+                                            p-1.5
+                                            text-gray-600
+                                            hover:bg-white
+                                            hover:text-indigo-600
+                                            md:block
+                                        "
+                                        title="Forward"
+                                    >
+                                        <Forward
+                                            size={18}
+                                        />
+                                    </button>
+                                </>
+                            )
                         )}
 
 
-                        {/* REPLY ALL */}
-
-                        {!isTrash && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setShowReply(
-                                        true
-                                    )
-                                }
-                                className="
-                                    hidden
-                                    rounded-lg
-                                    p-1.5
-                                    text-gray-600
-                                    hover:bg-white
-                                    hover:text-indigo-600
-                                    sm:block
-                                "
-                                title="Reply all"
-                            >
-                                <ReplyAll
-                                    size={18}
-                                />
-                            </button>
-                        )}
-
-
-                        {/* FORWARD */}
-
-                        {!isTrash && (
-                            <button
-                                type="button"
-                                className="
-                                    hidden
-                                    rounded-lg
-                                    p-1.5
-                                    text-gray-600
-                                    hover:bg-white
-                                    hover:text-indigo-600
-                                    md:block
-                                "
-                                title="Forward"
-                            >
-                                <Forward
-                                    size={18}
-                                />
-                            </button>
-                        )}
-
-
-                        {/* DELETE */}
+                        {/* =================================================
+                            DELETE / TRASH ACTION
+                        ================================================= */}
 
                         {isTrash ? (
+
                             <>
                                 <button
                                     type="button"
@@ -1944,6 +1578,7 @@ const MessageViewer = ({
                                     )}
                                 </button>
 
+
                                 <button
                                     type="button"
                                     disabled={
@@ -1967,7 +1602,9 @@ const MessageViewer = ({
                                     />
                                 </button>
                             </>
+
                         ) : (
+
                             <button
                                 type="button"
                                 disabled={
@@ -1993,7 +1630,9 @@ const MessageViewer = ({
                         )}
 
 
-                        {/* MORE */}
+                        {/* =================================================
+                            MORE
+                        ================================================= */}
 
                         <div
                             className="
@@ -2041,6 +1680,43 @@ const MessageViewer = ({
                                     "
                                 >
 
+                                    {/* EDIT DRAFT */}
+
+                                    {isDraft && (
+                                        <button
+                                            type="button"
+                                            className="
+                                                flex
+                                                w-full
+                                                items-center
+                                                gap-2
+                                                px-3
+                                                py-2
+                                                text-left
+                                                text-sm
+                                                text-gray-600
+                                                hover:bg-gray-50
+                                            "
+                                            onClick={() => {
+
+                                                setShowMoreMenu(
+                                                    false
+                                                );
+
+                                                handleEditDraft();
+                                            }}
+                                        >
+                                            <Pencil
+                                                size={15}
+                                            />
+
+                                            Edit draft
+                                        </button>
+                                    )}
+
+
+                                    {/* SHOW DETAILS */}
+
                                     <button
                                         type="button"
                                         className="
@@ -2056,9 +1732,11 @@ const MessageViewer = ({
                                             hover:bg-gray-50
                                         "
                                         onClick={() => {
+
                                             setShowDetails(
                                                 true
                                             );
+
                                             setShowMoreMenu(
                                                 false
                                             );
@@ -2067,6 +1745,7 @@ const MessageViewer = ({
                                         <Mail
                                             size={15}
                                         />
+
                                         Show details
                                     </button>
 
@@ -2078,9 +1757,9 @@ const MessageViewer = ({
                     </div>
 
 
-                    {/* -------------------------------------------------
+                    {/* =================================================
                         TO / RECIPIENTS
-                    ------------------------------------------------- */}
+                    ================================================= */}
 
                     <div
                         className="
@@ -2099,9 +1778,9 @@ const MessageViewer = ({
                     </div>
 
 
-                    {/* -------------------------------------------------
+                    {/* =================================================
                         COLLAPSED DETAILS
-                    ------------------------------------------------- */}
+                    ================================================= */}
 
                     {!showDetails && (
                         <div
@@ -2132,9 +1811,9 @@ const MessageViewer = ({
                     )}
 
 
-                    {/* -------------------------------------------------
+                    {/* =================================================
                         EXPANDED DETAILS
-                    ------------------------------------------------- */}
+                    ================================================= */}
 
                     {showDetails && (
                         <div
@@ -2152,15 +1831,18 @@ const MessageViewer = ({
                                 toRecipients
                             )}
 
+
                             {renderRecipientSection(
                                 "Cc",
                                 ccRecipients
                             )}
 
+
                             {renderRecipientSection(
                                 "Bcc",
                                 bccRecipients
                             )}
+
 
                             <button
                                 type="button"
@@ -2181,6 +1863,7 @@ const MessageViewer = ({
                                 "
                             >
                                 Hide details
+
                                 <ChevronUp
                                     size={15}
                                 />
@@ -2202,8 +1885,6 @@ const MessageViewer = ({
                             mt-3
                         "
                     >
-
-                        {/* ATTACHMENT CARDS */}
 
                         <div
                             className="
@@ -2239,6 +1920,7 @@ const MessageViewer = ({
                                     const isDownloading =
                                         downloadingAttachment ===
                                         index;
+
 
                                     return (
                                         <button
@@ -2325,6 +2007,7 @@ const MessageViewer = ({
                                                     {filename}
                                                 </div>
 
+
                                                 {fileSize && (
                                                     <div
                                                         className="
@@ -2406,6 +2089,7 @@ const MessageViewer = ({
                                 </button>
                             )}
 
+
                             <span
                                 className="
                                     hidden
@@ -2415,6 +2099,7 @@ const MessageViewer = ({
                             >
                                 |
                             </span>
+
 
                             <button
                                 type="button"
@@ -2471,178 +2156,192 @@ const MessageViewer = ({
 
                 {/* =================================================
                     REPLY BOX
+                   
+                    IMPORTANT:
+                    Draft messages NEVER show reply box.
                 ================================================= */}
 
-                {showReply && !isTrash && (
-                    <div
-                        className="
-                            mb-4
-                            rounded-xl
-                            border
-                            border-gray-200
-                            bg-gray-50
-                            p-4
-                        "
-                    >
-
+                {showReply &&
+                    !isTrash &&
+                    !isDraft && (
                         <div
                             className="
-                                mb-3
-                                flex
-                                items-center
-                                justify-between
+                                mb-4
+                                rounded-xl
+                                border
+                                border-gray-200
+                                bg-gray-50
+                                p-4
                             "
                         >
 
                             <div
                                 className="
+                                    mb-3
                                     flex
                                     items-center
-                                    gap-2
+                                    justify-between
                                 "
                             >
-                                <Reply
-                                    size={16}
-                                    className="text-indigo-600"
-                                />
 
-                                <span
+                                <div
                                     className="
-                                        text-sm
-                                        font-semibold
-                                        text-gray-700
+                                        flex
+                                        items-center
+                                        gap-2
                                     "
                                 >
-                                    Reply
-                                </span>
+
+                                    <Reply
+                                        size={16}
+                                        className="text-indigo-600"
+                                    />
+
+                                    <span
+                                        className="
+                                            text-sm
+                                            font-semibold
+                                            text-gray-700
+                                        "
+                                    >
+                                        Reply
+                                    </span>
+
+                                </div>
+
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+
+                                        setShowReply(
+                                            false
+                                        );
+
+                                        setReplyBody(
+                                            ""
+                                        );
+                                    }}
+                                    className="
+                                        rounded-lg
+                                        p-1.5
+                                        text-gray-400
+                                        hover:bg-gray-200
+                                        hover:text-gray-600
+                                    "
+                                >
+                                    <X size={16} />
+                                </button>
+
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowReply(
-                                        false
-                                    );
+
+                            <textarea
+                                value={replyBody}
+                                onChange={(event) =>
                                     setReplyBody(
-                                        ""
-                                    );
-                                }}
+                                        event.target.value
+                                    )
+                                }
+                                rows={5}
+                                placeholder="Write your reply..."
                                 className="
-                                    rounded-lg
-                                    p-1.5
-                                    text-gray-400
-                                    hover:bg-gray-200
-                                    hover:text-gray-600
-                                "
-                            >
-                                <X size={16} />
-                            </button>
-
-                        </div>
-
-
-                        <textarea
-                            value={replyBody}
-                            onChange={(event) =>
-                                setReplyBody(
-                                    event.target.value
-                                )
-                            }
-                            rows={5}
-                            placeholder="Write your reply..."
-                            className="
-                                w-full
-                                resize-y
-                                rounded-xl
-                                border
-                                border-gray-200
-                                bg-white
-                                p-4
-                                text-sm
-                                text-gray-700
-                                outline-none
-                                focus:border-indigo-500
-                                focus:ring-2
-                                focus:ring-indigo-100
-                            "
-                        />
-
-
-                        <div
-                            className="
-                                mt-3
-                                flex
-                                justify-end
-                                gap-2
-                            "
-                        >
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowReply(
-                                        false
-                                    );
-                                    setReplyBody(
-                                        ""
-                                    );
-                                }}
-                                className="
-                                    rounded-lg
-                                    px-4
-                                    py-2
+                                    w-full
+                                    resize-y
+                                    rounded-xl
+                                    border
+                                    border-gray-200
+                                    bg-white
+                                    p-4
                                     text-sm
-                                    text-gray-600
-                                    hover:bg-gray-200
+                                    text-gray-700
+                                    outline-none
+                                    focus:border-indigo-500
+                                    focus:ring-2
+                                    focus:ring-indigo-100
                                 "
-                            >
-                                Cancel
-                            </button>
+                            />
 
 
-                            <button
-                                type="button"
-                                disabled={
-                                    actionLoading ||
-                                    !replyBody.trim()
-                                }
-                                onClick={
-                                    handleReply
-                                }
+                            <div
                                 className="
+                                    mt-3
                                     flex
-                                    items-center
+                                    justify-end
                                     gap-2
-                                    rounded-lg
-                                    bg-indigo-600
-                                    px-4
-                                    py-2
-                                    text-sm
-                                    font-semibold
-                                    text-white
-                                    hover:bg-indigo-700
-                                    disabled:cursor-not-allowed
-                                    disabled:opacity-50
                                 "
                             >
 
-                                {actionLoading ? (
-                                    <Loader2
-                                        size={15}
-                                        className="animate-spin"
-                                    />
-                                ) : (
-                                    <Send size={15} />
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => {
 
-                                Send Reply
+                                        setShowReply(
+                                            false
+                                        );
 
-                            </button>
+                                        setReplyBody(
+                                            ""
+                                        );
+                                    }}
+                                    className="
+                                        rounded-lg
+                                        px-4
+                                        py-2
+                                        text-sm
+                                        text-gray-600
+                                        hover:bg-gray-200
+                                    "
+                                >
+                                    Cancel
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        actionLoading ||
+                                        !replyBody.trim()
+                                    }
+                                    onClick={
+                                        handleReply
+                                    }
+                                    className="
+                                        flex
+                                        items-center
+                                        gap-2
+                                        rounded-lg
+                                        bg-indigo-600
+                                        px-4
+                                        py-2
+                                        text-sm
+                                        font-semibold
+                                        text-white
+                                        hover:bg-indigo-700
+                                        disabled:cursor-not-allowed
+                                        disabled:opacity-50
+                                    "
+                                >
+
+                                    {actionLoading ? (
+                                        <Loader2
+                                            size={15}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <Send
+                                            size={15}
+                                        />
+                                    )}
+
+                                    Send Reply
+
+                                </button>
+
+                            </div>
 
                         </div>
-
-                    </div>
-                )}
+                    )}
 
             </div>
 
@@ -2674,6 +2373,7 @@ const MessageViewer = ({
                         )
                         : ""}
                 </span>
+
 
                 <span
                     className="
