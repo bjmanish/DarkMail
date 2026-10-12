@@ -2,6 +2,9 @@ const bcrypt = require("bcryptjs");
 
 const Employee = require("../models/Employee");
 
+const {
+    sendMailtoPersonalMail
+} = require("../services/emailService");
 
 /*
  * GET ALL EMPLOYEES
@@ -77,9 +80,7 @@ const getEmployeeById = async (req, res) => {
  * POST /api/employees
  */
 const createEmployee = async (req, res) => {
-
     try {
-
         const {
             employeeId,
             name,
@@ -92,7 +93,6 @@ const createEmployee = async (req, res) => {
             role
         } = req.body;
 
-
         /*
          * REQUIRED FIELDS
          */
@@ -100,26 +100,43 @@ const createEmployee = async (req, res) => {
             !employeeId ||
             !name ||
             !email ||
+            !personalEmail ||
             !password
         ) {
-
             return res.status(400).json({
                 success: false,
                 message:
-                    "Employee ID, name, email and password are required"
+                    "Employee ID, name, company email, personal email and password are required"
             });
         }
 
+        /*
+         * NORMALIZE INPUT
+         */
+        const normalizedEmployeeId =
+            String(employeeId).trim().toUpperCase();
 
-        const normalizedEmail = email
-            .trim()
-            .toLowerCase();
+        const normalizedName =
+            String(name).trim();
 
+        const normalizedEmail =
+            String(email).trim().toLowerCase();
 
-        const normalizedEmployeeId = employeeId
-            .trim()
-            .toUpperCase();
+        const normalizedPersonalEmail =
+            String(personalEmail).trim().toLowerCase();
 
+        if (
+            !normalizedEmployeeId ||
+            !normalizedName ||
+            !normalizedEmail ||
+            !normalizedPersonalEmail ||
+            !password
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide valid employee details"
+            });
+        }
 
         /*
          * CHECK EMPLOYEE ID
@@ -130,13 +147,11 @@ const createEmployee = async (req, res) => {
             });
 
         if (existingEmployeeId) {
-
             return res.status(409).json({
                 success: false,
                 message: "Employee ID already exists"
             });
         }
-
 
         /*
          * CHECK COMPANY EMAIL
@@ -147,13 +162,11 @@ const createEmployee = async (req, res) => {
             });
 
         if (existingEmail) {
-
             return res.status(409).json({
                 success: false,
                 message: "Company email already exists"
             });
         }
-
 
         /*
          * HASH PASSWORD
@@ -161,71 +174,108 @@ const createEmployee = async (req, res) => {
         const hashedPassword =
             await bcrypt.hash(password, 12);
 
-
         /*
-         * CREATE EMPLOYEE
+         * CREATE EMPLOYEE IN MONGODB
          */
         const employee = await Employee.create({
-
             employeeId: normalizedEmployeeId,
-
-            name: name.trim(),
-
+            name: normalizedName,
             email: normalizedEmail,
-
-            personalEmail:
-                personalEmail
-                    ? personalEmail.trim().toLowerCase()
-                    : "",
-
+            personalEmail: normalizedPersonalEmail,
             password: hashedPassword,
 
-            department:
-                department
-                    ? department.trim()
-                    : "",
+            department: department
+                ? String(department).trim()
+                : "",
 
-            designation:
-                designation
-                    ? designation.trim()
-                    : "",
+            designation: designation
+                ? String(designation).trim()
+                : "",
 
-            hireDate:
-                hireDate || null,
+            hireDate: hireDate || null,
 
-            role:
-                role === "ADMIN"
-                    ? "ADMIN"
-                    : "USER",
+            role: role === "ADMIN"
+                ? "ADMIN"
+                : "USER",
 
             isActive: true
         });
 
+        /*
+         * SEND WELCOME EMAIL TO PERSONAL EMAIL
+         *
+         * Employee creation should not be rolled back
+         * if SMTP delivery fails.
+         */
+        let emailSent = false;
+        let emailMessage = "";
+
+        try {
+            const emailInfo = await sendMailtoPersonalMail({
+                name: employee.name,
+                to: employee.personalEmail,
+                employeeId: employee.employeeId,
+                workEmail: employee.email,
+                department: employee.department,
+                designation: employee.designation
+            });
+
+            emailSent = true;
+            emailMessage = "Welcome email sent successfully";
+
+            console.log(
+                "Employee welcome email sent:",
+                {
+                    employeeId: employee.employeeId,
+                    to: employee.personalEmail,
+                    messageId: emailInfo.messageId
+                }
+            );
+        } catch (emailError) {
+            emailMessage =
+                "Employee created, but welcome email could not be sent";
+
+            console.error(
+                "Welcome email failed:",
+                {
+                    employeeId: employee.employeeId,
+                    error: emailError.message
+                }
+            );
+        }
 
         /*
-         * REMOVE PASSWORD
+         * REMOVE PASSWORD FROM RESPONSE
          */
-        const responseEmployee =
-            employee.toObject();
+        const responseEmployee = employee.toObject();
 
         delete responseEmployee.password;
 
-
+        /*
+         * API RESPONSE
+         */
         return res.status(201).json({
             success: true,
-            message: "Employee created successfully",
-            employee: responseEmployee
+
+            message: emailSent
+                ? "Employee created successfully and welcome email sent"
+                : "Employee created successfully, but welcome email failed",
+
+            employee: responseEmployee,
+
+            email: {
+                sent: emailSent,
+                message: emailMessage
+            }
         });
-
     } catch (error) {
-
         console.error("Create employee error:", error);
 
         if (error.code === 11000) {
-
             return res.status(409).json({
                 success: false,
-                message: "Employee ID or email already exists"
+                message:
+                    "Employee ID or company email already exists"
             });
         }
 

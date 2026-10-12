@@ -38,6 +38,16 @@ const employeeSchema = new mongoose.Schema(
             minlength: 6,
         },
 
+        passwordResetToken: {
+            type: String,
+            default: undefined
+        },
+
+        passwordResetExpires: {
+            type: Date,
+            default: undefined
+        },
+
         role: {
             type: String,
             enum: ["ADMIN", "USER"],

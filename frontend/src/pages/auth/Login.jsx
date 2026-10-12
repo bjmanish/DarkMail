@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import {
     Mail,
@@ -1432,6 +1432,15 @@ const Login = () => {
                             </button>
 
                         </form>
+
+                        <div className="mt-2 flex justify-center">
+                            <Link
+                                to="/forgot-password"
+                                className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                            >
+                                Forgot Password?
+                            </Link>
+                        </div>
 
 
                         {/* =================================================
