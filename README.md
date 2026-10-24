@@ -11,6 +11,7 @@ administrative tools for managing employee accounts.
 > Folder and file names can vary slightly in your local copy. Keep your
 > existing filenames and routes if they differ.
 
+
 ------------------------------------------------------------------------
 
 ## Table of Contents
@@ -33,6 +34,13 @@ administrative tools for managing employee accounts.
 -   [Development Workflow](#development-workflow)
 
 ------------------------------------------------------------------------
+
+## Live Demo
+### Try the deployed DarkMail frontend:
+- Demo: https://dark-mail.vercel.app/
+The demo requires a valid account. If the deployment is unavailable, check the current deployment status or run the project locally using the setup instructions below. Do not publish demo credentials in this README; share test credentials separately only if you have configured a safe demo account.
+
+--------------------------------------------------------------------------
 
 ## Features
 
