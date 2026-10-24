@@ -1,111 +1,79 @@
 const express = require("express");
 
-const upload =
-    require("../middleware/uploadMiddleware");
+const upload = require("../middleware/uploadMiddleware");
 
 const {
-    sendMessage,
-    getMessages,
-    getTrash,
-    getMessageById,
-    markAsRead,
-    moveToTrash,
-    restoreMessage,
-    permanentlyDeleteMessage,
-    replyToMessage,
-    getThread,
+  sendMessage,
+  getMessages,
+  getTrash,
+  getMessageById,
+  markAsRead,
+  moveToTrash,
+  restoreMessage,
+  permanentlyDeleteMessage,
+  replyToMessage,
+  getThread,
 
-    saveDraft,
-    getDrafts,
-    deleteDraft,
-    sendDraft,
+  saveDraft,
+  getDrafts,
+  deleteDraft,
+  sendDraft,
 
-    searchMessages,
-    getUnreadCount,
+  searchMessages,
+  getUnreadCount,
 
-    downloadAttachment,
+  getMessageAttachments,
+  downloadAttachment,
 
-    searchRecipients
+  searchRecipients,
+} = require("../controllers/messageController");
 
-} = require(
-    "../controllers/messageController"
-);
+const { authMiddleware } = require("../middleware/authMiddleware");
+// const { getMessageAttachments } = require("../controllers/attachmentController");
 
-const {
-    authMiddleware
-} = require(
-    "../middleware/authMiddleware"
-);
-
-
-const router =
-    express.Router();
-
+const router = express.Router();
 
 /*
 |--------------------------------------------------------------------------
-| Authentication required
+| Authentication
 |--------------------------------------------------------------------------
+| All message routes require authentication.
 */
 
-router.use(
-    authMiddleware
-);
-
+router.use(authMiddleware);
 
 /*
 |--------------------------------------------------------------------------
-| Draft routes
-|
-| IMPORTANT:
-| These must come before /:id
+| Draft Routes
 |--------------------------------------------------------------------------
+| Register specific routes before /:id.
 */
 
-router.get(
-    "/drafts",
-    getDrafts
-);
+router.get("/drafts", getDrafts);
 
-router.post(
-    "/drafts",
-    saveDraft
-);
+router.post("/drafts", saveDraft);
 
-router.post(
-    "/drafts/:id/send",
-    sendDraft
-);
+router.post("/drafts/:id/send", sendDraft);
 
-router.delete(
-    "/drafts/:id",
-    deleteDraft
-);
-
+router.delete("/drafts/:id", deleteDraft);
 
 /*
 |--------------------------------------------------------------------------
-| Search
+| Search Routes
 |--------------------------------------------------------------------------
 */
 
-router.get(
-    "/search",
-    searchMessages
-);
+router.get("/search", searchMessages);
 
+router.get("/recipients/search", searchRecipients);
 
 /*
 |--------------------------------------------------------------------------
-| Unread count
+| Unread Count
 |--------------------------------------------------------------------------
 */
 
-router.get(
-    "/unread-count",
-    getUnreadCount
-);
-
+router.get("/unread-count", getUnreadCount);
 
 /*
 |--------------------------------------------------------------------------
@@ -113,140 +81,94 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-router.get(
-    "/trash",
-    getTrash
-);
-
+router.get("/trash", getTrash);
 
 /*
 |--------------------------------------------------------------------------
-| Inbox / Sent / Unread
+| Message Attachments
 |--------------------------------------------------------------------------
-*/
-
-router.get(
-    "/",
-    getMessages
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Attachments
+| Existing download route:
+| GET /api/messages/:messageId/attachments/:attachmentIndex
 |
-| Must come before /:id
-|--------------------------------------------------------------------------
+| Keep this route if messageController.downloadAttachment uses the
+| existing Message attachment structure.
 */
 
-router.get(
-    "/:messageId/attachments/:attachmentIndex",
-    downloadAttachment
-);
+router.get("/:messageId/attachments/:attachmentIndex", downloadAttachment);
 
+router.get("/:messageId/attachments", getMessageAttachments);
 
 /*
 |--------------------------------------------------------------------------
-| Thread
+| Thread Routes
 |--------------------------------------------------------------------------
 */
 
-router.get(
-    "/:id/thread",
-    getThread
-);
-
-router.get(
-    "/recipients/search",
-    searchRecipients
-);
+router.get("/:id/thread", getThread);
 
 /*
 |--------------------------------------------------------------------------
-| Single message
+| Inbox / Sent / Other Message Folders
 |--------------------------------------------------------------------------
 */
 
-router.get(
-    "/:id",
-    getMessageById
-);
-
+router.get("/", getMessages);
 
 /*
 |--------------------------------------------------------------------------
-| Send new message
+| Single Message
 |--------------------------------------------------------------------------
 */
 
-router.post(
-    "/",
-    upload.array(
-        "attachments",
-        10
-    ),
-    sendMessage
-);
-
+router.get("/:id", getMessageById);
 
 /*
 |--------------------------------------------------------------------------
-| Reply
+| Send New Message
 |--------------------------------------------------------------------------
+| The upload middleware must accept the field name "attachments".
 */
 
-router.post(
-    "/:id/reply",
-    replyToMessage
-);
-
+router.post("/", upload.array("attachments", 10), sendMessage);
 
 /*
 |--------------------------------------------------------------------------
-| Mark read
+| Reply to Message
 |--------------------------------------------------------------------------
 */
 
-router.patch(
-    "/:id/read",
-    markAsRead
-);
-
+router.post("/:id/reply", replyToMessage);
 
 /*
 |--------------------------------------------------------------------------
-| Move to trash
+| Mark Message as Read
 |--------------------------------------------------------------------------
 */
 
-router.patch(
-    "/:id/trash",
-    moveToTrash
-);
-
+router.patch("/:id/read", markAsRead);
 
 /*
 |--------------------------------------------------------------------------
-| Restore
+| Move Message to Trash
 |--------------------------------------------------------------------------
 */
 
-router.patch(
-    "/:id/restore",
-    restoreMessage
-);
-
+router.patch("/:id/trash", moveToTrash);
 
 /*
 |--------------------------------------------------------------------------
-| Permanent delete
+| Restore Message
 |--------------------------------------------------------------------------
 */
 
-router.delete(
-    "/:id",
-    permanentlyDeleteMessage
-);
+router.patch("/:id/restore", restoreMessage);
 
+/*
+|--------------------------------------------------------------------------
+| Permanently Delete Message
+|--------------------------------------------------------------------------
+*/
+
+router.delete("/:id", permanentlyDeleteMessage);
 
 module.exports = router;

@@ -3,90 +3,58 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
-const uploadDirectory = path.join(
-    __dirname,
-    "../uploads/messages"
-);
+const uploadDirectory = path.resolve(process.cwd(), "uploads", "messages");
 
-
-if (!fs.existsSync(uploadDirectory)) {
-    fs.mkdirSync(uploadDirectory, {
-        recursive: true
-    });
-}
-
-
-const allowedMimeTypes = new Set([
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-
-    "application/pdf",
-
-    "text/plain",
-
-    "application/msword",
-
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-
-    "application/vnd.ms-excel",
-
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-    "application/vnd.ms-powerpoint",
-
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-
-    "application/zip"
-]);
-
+fs.mkdirSync(uploadDirectory, {
+  recursive: true,
+});
 
 const storage = multer.diskStorage({
+  destination: (req, file, callback) => {
+    callback(null, uploadDirectory);
+  },
 
-    destination: (req, file, cb) => {
-        cb(null, uploadDirectory);
-    },
+  filename: (req, file, callback) => {
+    const extension = path.extname(file.originalname).toLowerCase();
 
-    filename: (req, file, cb) => {
-
-        const extension =
-            path.extname(file.originalname);
-
-        const uniqueName =
-            `${Date.now()}-${crypto.randomUUID()}${extension}`;
-
-        cb(null, uniqueName);
-    }
+    callback(null, `${crypto.randomUUID()}${extension}`);
+  },
 });
 
-
-const fileFilter = (req, file, cb) => {
-
-    if (!allowedMimeTypes.has(file.mimetype)) {
-
-        return cb(
-            new Error(
-                `File type not allowed: ${file.mimetype}`
-            )
-        );
-    }
-
-    cb(null, true);
-};
-
+const allowedMimeTypes = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/zip",
+]);
 
 const upload = multer({
+  storage,
 
-    storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 10,
+  },
 
-    fileFilter,
-
-    limits: {
-        fileSize: 10 * 1024 * 1024,
-        files: 10
+  fileFilter: (req, file, callback) => {
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      return callback(new Error(`File type is not allowed: ${file.mimetype}`));
     }
+
+    callback(null, true);
+  },
 });
 
-
+/*
+ * Export the Multer instance directly.
+ * This allows upload.array(), upload.single(), etc.
+ */
 module.exports = upload;

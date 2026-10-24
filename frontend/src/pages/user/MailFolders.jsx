@@ -37,6 +37,7 @@ import {
 } from "../../api/messageApi";
 
 import MessageViewer from "../../components/mail/MessageViewer";
+import ComposeModal from "../../components/mail/ComposeModal";
 
 
 /* =========================================================
@@ -615,6 +616,58 @@ const MailFolder = ({
 
 
     const [
+        page,
+        setPage,
+    ] = useState(1);
+
+
+    /* =====================================================
+       COMPOSE MODAL STATE
+       Used by Reply, Reply All and Forward actions.
+    ===================================================== */
+
+    const [
+        composeOpen,
+        setComposeOpen,
+    ] = useState(false);
+
+    const [
+        composeInitialData,
+        setComposeInitialData,
+    ] = useState(null);
+
+    const handleComposeRequest = useCallback((composeData) => {
+        // Keep the full reply/forward context so ComposeModal can prefill
+        // recipients, quoted body, and the original conversation identifiers.
+        setComposeInitialData({
+            mode: composeData?.mode || "compose",
+            to: Array.isArray(composeData?.to) ? composeData.to : [],
+            cc: Array.isArray(composeData?.cc) ? composeData.cc : [],
+            bcc: Array.isArray(composeData?.bcc) ? composeData.bcc : [],
+            subject: composeData?.subject || "",
+            body: composeData?.body || "",
+            threadId: composeData?.threadId || "",
+            inReplyTo: composeData?.inReplyTo || "",
+            forwardedMessageId: composeData?.forwardedMessageId || "",
+            originalMessageId: composeData?.originalMessageId || "",
+        });
+        setComposeOpen(true);
+    }, []);
+
+    const handleComposeClose = useCallback(() => {
+        setComposeOpen(false);
+        setComposeInitialData(null);
+    }, []);
+
+    const handleComposeSent = useCallback(async () => {
+        setComposeOpen(false);
+        setComposeInitialData(null);
+        await loadMessages({ showLoading: false, requestedPage: page });
+        await loadFolderCounts();
+    }, [page]);
+
+
+    const [
         loading,
         setLoading,
     ] = useState(true);
@@ -642,12 +695,6 @@ const MailFolder = ({
         search,
         setSearch,
     ] = useState("");
-
-
-    const [
-        page,
-        setPage,
-    ] = useState(1);
 
 
     const [
@@ -2456,15 +2503,24 @@ const MailFolder = ({
                 flex
                 h-full
                 min-h-0
-                flex-col
+                flex-row
                 overflow-hidden
-                rounded-2xl
+                
                 border
                 border-gray-200
                 bg-white
                 shadow-sm
             "
         >
+
+            {/* LEFT PANEL: Inbox header, search, selection and message list */}
+            <section
+                className={`
+                    flex min-h-0 min-w-0 flex-col overflow-hidden
+                    border-r border-gray-200 bg-white
+                    ${selectedMessage ? "hidden lg:flex lg:w-[45%] lg:flex-none" : "w-full lg:w-[45%] lg:flex-none"}
+                `}
+            >
 
             {/* =================================================
                 HEADER
@@ -3050,15 +3106,17 @@ const MailFolder = ({
                         flex
                         min-h-0
                         min-w-0
-                        flex-1
                         flex-col
                         overflow-hidden
 
                         ${
                             selectedMessage
-                                ? "hidden lg:flex lg:w-[45%] lg:max-w-[520px] lg:flex-none lg:border-r lg:border-gray-200"
-                                : "w-full"
+                                ? "hidden lg:flex"
+                                : "flex w-full"
                         }
+
+                        w-full
+                        flex-1
                     `}
                 >
 
@@ -3845,53 +3903,66 @@ const MailFolder = ({
 
                 </div>
 
+                </div>
 
-                {/* =================================================
-                    MESSAGE VIEWER
-                ================================================= */}
+            </section>
 
-                {selectedMessage && (
+            {/* RIGHT PANEL: Message header and message content */}
+            {/* =================================================
+                MESSAGE VIEWER
+            ================================================= */}
 
-                    <div
-                        className="
-                            flex
-                            min-h-0
-                            min-w-0
-                            flex-1
-                            overflow-hidden
-                        "
-                    >
-
+                <div
+                    className={`
+                        min-h-0
+                        min-w-0
+                        flex-1
+                        overflow-hidden
+                        bg-white
+                        ${selectedMessage ? "flex w-full lg:w-[55%]" : "hidden lg:flex lg:w-[55%]"}
+                    `}
+                >
+                    {selectedMessage ? (
                         <MessageViewer
-                            message={
-                                selectedMessage
-                            }
-
+                            message={selectedMessage}
                             onClose={() =>
-                                setSelectedMessage(
-                                    null
-                                )
+                                setSelectedMessage(null)
                             }
-
-                            onMessageDeleted={
-                                handleMessageDeleted
-                            }
-
-                            onMessageUpdated={
-                                handleMessageUpdated
-                            }
-
-                            showCloseButton={
-                                true
-                            }
-
+                            onMessageDeleted={handleMessageDeleted}
+                            onMessageUpdated={handleMessageUpdated}
+                            onComposeRequest={handleComposeRequest}
+                            showCloseButton={true}
                         />
+                    ) : (
+                        <div className="flex h-full min-h-[320px] w-full flex-col items-center justify-center bg-slate-50 px-6 text-center">
+                            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-200 bg-white text-indigo-500 shadow-sm">
+                                <MailOpen size={34} strokeWidth={1.5} />
+                            </div>
 
-                    </div>
+                            <h2 className="text-lg font-semibold text-slate-800">
+                                No message selected
+                            </h2>
 
-                )}
+                            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                                Select an email from the list to view its contents, recipients, and attachments.
+                            </p>
+                        </div>
+                    )}
+                </div>
 
-            </div>
+            {/* </div> */}
+
+            {/* Reply / Reply All / Forward compose modal.
+                Kept alongside the existing mail layout so all
+                existing folder and message actions remain available. */}
+            {composeOpen && (
+                <ComposeModal
+                    key={`${composeInitialData?.mode || "compose"}-${composeInitialData?.originalMessageId || composeInitialData?.threadId || Date.now()}`}
+                    initialData={composeInitialData}
+                    onClose={handleComposeClose}
+                    onSent={handleComposeSent}
+                />
+            )}
 
         </div>
 

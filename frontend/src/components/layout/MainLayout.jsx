@@ -1379,10 +1379,8 @@ const MainLayout = () => {
                         border-b
                         border-gray-200
                         bg-white
-                        px-3
+                        px-1
                         shadow-sm
-                        sm:px-5
-                        lg:px-6
                     "
                 >
 
@@ -2296,9 +2294,7 @@ const MainLayout = () => {
                         overflow-x-hidden
                         overflow-y-auto
                         bg-gray-100
-                        p-3
-                        sm:p-5
-                        lg:p-6
+                        p-0
                     "
                 >
 

@@ -2536,125 +2536,47 @@ const Inbox = () => {
     // FULL SCREEN MESSAGE VIEW
     // ============================================================
 
-    const renderMessageView =
-        () => {
-
-            return (
-
-                <div
-                    className="
-                        relative
-                        flex
-                        h-full
-                        min-h-0
-                        w-full
-                        min-w-0
-                        flex-1
-                        overflow-hidden
-                        bg-white
-                    "
-                >
-
-                    {messageLoading && (
-
-                        <div
-                            className="
-                                absolute
-                                inset-0
-                                z-50
-                                flex
-                                items-center
-                                justify-center
-                                bg-white/60
-                                backdrop-blur-[1px]
-                            "
-                        >
-
-                            <div
-                                className="
-                                    h-9
-                                    w-9
-                                    animate-spin
-                                    rounded-full
-                                    border-2
-                                    border-blue-600
-                                    border-t-transparent
-                                "
-                            />
-
-                        </div>
-
-                    )}
-
-
-                    <div
-                        className="
-                            h-full
-                            min-h-0
-                            w-full
-                            min-w-0
-                            flex-1
-                            overflow-hidden
-                        "
-                    >
-
-                        <MessageViewer
-                            message={
-                                selectedMessage
-                            }
-
-                            onClose={
-                                handleCloseMessage
-                            }
-
-                            onMessageDeleted={
-                                handleDelete
-                            }
-
-                            onMessageUpdated={
-                                handleMessageUpdated
-                            }
-
-                            showCloseButton={
-                                true
-                            }
-                        />
-
+    const renderMessageView = () => {
+        return (
+            <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden bg-white">
+                {messageLoading && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-[1px]">
+                        <div className="h-9 w-9 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
                     </div>
+                )}
 
-
-                    {messageError && (
-
-                        <div
-                            className="
-                                absolute
-                                bottom-4
-                                left-4
-                                right-4
-                                z-[60]
-                                rounded-lg
-                                border
-                                border-red-200
-                                bg-red-50
-                                px-4
-                                py-3
-                                text-sm
-                                text-red-700
-                                shadow-lg
-                            "
-                        >
-                            {
-                                messageError
-                            }
+                <div className="h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden">
+                    {selectedMessage ? (
+                        <MessageViewer
+                            message={selectedMessage}
+                            onClose={handleCloseMessage}
+                            onMessageDeleted={handleDelete}
+                            onMessageUpdated={handleMessageUpdated}
+                            showCloseButton={true}
+                        />
+                    ) : (
+                        <div className="flex h-full min-h-[320px] flex-col items-center justify-center bg-slate-50 px-6 text-center">
+                            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-200 bg-white text-4xl shadow-sm">
+                                ✉️
+                            </div>
+                            <h2 className="text-lg font-semibold text-slate-800">
+                                Select a message to read
+                            </h2>
+                            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                                Choose an email from your message list and its contents will appear here.
+                            </p>
                         </div>
-
                     )}
-
                 </div>
 
-            );
-
-        };
+                {messageError && (
+                    <div className="absolute bottom-4 left-4 right-4 z-[60] rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg">
+                        {messageError}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
 
     // ============================================================
@@ -2826,14 +2748,13 @@ const Inbox = () => {
 
                     <div
                         className="
-                            mx-4
-                            mt-3
+                            
                             shrink-0
                             rounded-lg
                             border
                             border-red-200
                             bg-red-50
-                            p-3
+                            
                             text-xs
                             text-red-600
                             sm:mx-5
@@ -2915,9 +2836,9 @@ const Inbox = () => {
     // ============================================================
 
     return (
-
         <div
             className="
+                flex
                 h-full
                 min-h-0
                 w-full
@@ -2926,13 +2847,37 @@ const Inbox = () => {
                 bg-white
             "
         >
+            {/* LEFT PANEL: message list */}
+            <div
+                className={`
+                    h-full
+                    min-h-0
+                    w-full
+                    min-w-5
+                    ${selectedMessage ? "hidden lg:flex" : "flex"}
+                    lg:flex
+                    lg:w-[50%]
+                    lg:max-w-[560px]
+                    lg:flex-none
+                `}
+            >
+                {renderInbox()}
+            </div>
 
-            {selectedMessage
-                ? renderMessageView()
-                : renderInbox()}
-
+            {/* RIGHT PANEL: selected message or default empty state */}
+            <div
+                className={`
+                    h-full
+                    min-h-0
+                    min-w-0
+                    flex-1
+                    overflow-hidden
+                    ${selectedMessage ? "flex" : "hidden lg:flex"}
+                `}
+            >
+                {renderMessageView()}
+            </div>
         </div>
-
     );
 
 };

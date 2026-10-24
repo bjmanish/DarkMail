@@ -21,6 +21,9 @@ import {
     FileText,
     AlertCircle,
     CheckCircle2,
+    Minus,
+    Maximize2,
+    Minimize2,
 } from "lucide-react";
 
 import {
@@ -44,7 +47,18 @@ const ComposeModal = ({
     onClose,
     onSent,
     draft = null,
+    initialData = null,
 }) => {
+    // console.log(initialData)
+    const [isMinimized, setIsMinimized] = useState(false);
+    const [isMaximized, setIsMaximized] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            setIsMinimized(false);
+            setIsMaximized(false);
+        }
+    }, [open]);
 
     /* =====================================================
        AUTH
@@ -222,6 +236,34 @@ const ComposeModal = ({
 
         setLoadedDraft(null);
     };
+
+
+    /* =====================================================
+       PREFILL REPLY / REPLY ALL / FORWARD
+       This is additive: normal compose and draft editing
+       continue to use their existing flow.
+    ===================================================== */
+
+    useEffect(() => {
+        if (!open || !initialData || isEditingDraft) {
+            return;
+        }
+
+        setSubject(String(initialData.subject || ""));
+        setBody(String(initialData.body || ""));
+        setTo(Array.isArray(initialData.to) ? initialData.to : []);
+        setCc(Array.isArray(initialData.cc) ? initialData.cc : []);
+        setBcc(Array.isArray(initialData.bcc) ? initialData.bcc : []);
+        setAttachments([]);
+        setError("");
+        setSuccess("");
+        setRecipientSearch("");
+        setRecipientMode("to");
+        setShowCc(Boolean(initialData.cc?.length));
+        setShowBcc(Boolean(initialData.bcc?.length));
+        setIsMinimized(false);
+        setIsMaximized(false);
+    }, [open, initialData, isEditingDraft]);
 
 
     /* =====================================================
@@ -510,8 +552,10 @@ const ComposeModal = ({
 
         if (!loadedDraft) {
 
-            if (!isEditingDraft) {
-
+            // Do not clear reply/reply-all/forward data that was
+            // populated from initialData. This effect is also used
+            // for ordinary compose and draft loading.
+            if (!isEditingDraft && !initialData) {
                 resetForm();
             }
 
@@ -621,6 +665,7 @@ const ComposeModal = ({
         loadedDraft,
         isEditingDraft,
         loadingDraft,
+        initialData,
     ]);
 
 
@@ -1697,20 +1742,15 @@ const ComposeModal = ({
        UI
     ===================================================== */
 
+    if (!open) return null;
+
     return (
 
         <div
-            className="
-                fixed
-                inset-0
-                z-[100]
-                flex
-                items-center
-                justify-center
-                bg-black/50
-                px-4
-                py-4
-            "
+            className={`
+                fixed inset-0 z-[100] flex bg-slate-600/60
+                ${isMinimized ? "items-end justify-end bg-transparent px-4 py-4 pointer-events-none" : "items-center justify-center px-2 py-2 sm:px-4 sm:py-4"}
+            `}
             onMouseDown={(event) => {
 
                 /*
@@ -1729,17 +1769,11 @@ const ComposeModal = ({
         >
 
             <div
-                className="
-                    flex
-                    w-full
-                    max-w-3xl
-                    max-h-[92vh]
-                    flex-col
-                    overflow-hidden
-                    rounded-2xl
-                    bg-white
-                    shadow-2xl
-                "
+                className={`
+                    flex flex-col overflow-hidden border border-white/70 bg-white
+                    shadow-[0_24px_80px_-20px_rgba(15,23,42,0.45)] transition-all duration-200
+                    ${isMinimized ? "pointer-events-auto h-[68px] w-[340px] max-w-[calc(100vw-2rem)] rounded-xl" : isMaximized ? "h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none rounded-xl" : "max-h-[94vh] w-full max-w-5xl rounded-2xl"}
+                `}
                 onMouseDown={(event) => {
 
                     /*
@@ -1762,9 +1796,14 @@ const ComposeModal = ({
                         items-center
                         justify-between
                         border-b
-                        border-gray-200
-                        px-5
-                        py-4
+                        border-slate-200
+                        bg-gradient-to-r
+                        from-indigo-50
+                        via-white
+                        to-violet-50
+                        px-4
+                        py-3
+                        sm:px-6
                     "
                 >
 
@@ -1784,9 +1823,10 @@ const ComposeModal = ({
 
                             <h2
                                 className="
-                                    text-lg
-                                    font-semibold
-                                    text-gray-900
+                                    text-xl
+                                    font-bold
+                                    tracking-tight
+                                    text-slate-900
                                 "
                             >
                                 {isEditingDraft
@@ -1817,8 +1857,8 @@ const ComposeModal = ({
                         <p
                             className="
                                 mt-0.5
-                                text-xs
-                                text-gray-500
+                                text-sm
+                                text-slate-500
                             "
                         >
                             Send a message to a DarkMail employee
@@ -1827,35 +1867,27 @@ const ComposeModal = ({
                     </div>
 
 
-                    {/* CLOSE */}
-
-                    <button
-                        type="button"
-                        onClick={
-                            handleClose
-                        }
-                        disabled={
-                            sending ||
-                            savingDraft ||
-                            loadingDraft
-                        }
-                        className="
-                            rounded-lg
-                            p-2
-                            text-gray-500
-                            transition
-                            hover:bg-gray-100
-                            hover:text-gray-800
-                            disabled:cursor-not-allowed
-                            disabled:opacity-50
-                        "
-                        title="Close"
-                        aria-label="Close compose"
-                    >
-                        <X
-                            size={21}
-                        />
-                    </button>
+                    {/* WINDOW CONTROLS: MINIMIZE, MAXIMIZE / RESTORE, CLOSE */}
+                    <div className="flex shrink-0 items-center gap-1">
+                        <button type="button" onClick={() => setIsMinimized((v) => !v)}
+                            className="rounded-lg p-2 text-slate-500 transition hover:bg-indigo-100 hover:text-indigo-700"
+                            title={isMinimized ? "Restore compose" : "Minimize compose"}
+                            aria-label={isMinimized ? "Restore compose" : "Minimize compose"}>
+                            {isMinimized ? <Maximize2 size={18} /> : <Minus size={18} />}
+                        </button>
+                        <button type="button" onClick={() => { setIsMinimized(false); setIsMaximized((v) => !v); }}
+                            className="rounded-lg p-2 text-slate-500 transition hover:bg-indigo-100 hover:text-indigo-700"
+                            title={isMaximized ? "Restore window" : "Maximize window"}
+                            aria-label={isMaximized ? "Restore window" : "Maximize window"}>
+                            {isMaximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        </button>
+                        <button type="button" onClick={handleClose}
+                            disabled={sending || savingDraft || loadingDraft}
+                            className="rounded-lg p-2 text-slate-500 transition hover:bg-rose-100 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Close" aria-label="Close compose">
+                            <X size={21} />
+                        </button>
+                    </div>
 
                 </div>
 
@@ -1866,9 +1898,12 @@ const ComposeModal = ({
 
                 <div
                     className="
+                        min-h-0
                         flex-1
                         overflow-y-auto
-                        p-5
+                        bg-slate-50/70
+                        p-4
+                        sm:p-6
                     "
                 >
 
@@ -2169,6 +2204,7 @@ const ComposeModal = ({
                         className="
                             mb-3
                             flex
+                            items-center
                             gap-4
                             text-sm
                         "
@@ -2182,8 +2218,13 @@ const ComposeModal = ({
                                 )
                             }
                             className="
-                                text-gray-600
-                                hover:text-gray-900
+                                rounded-md
+                                px-1
+                                py-1
+                                font-medium
+                                text-indigo-600
+                                transition-colors
+                                hover:text-indigo-800
                             "
                         >
                             {showCc
@@ -2200,8 +2241,13 @@ const ComposeModal = ({
                                 )
                             }
                             className="
-                                text-gray-600
-                                hover:text-gray-900
+                                rounded-md
+                                px-1
+                                py-1
+                                font-medium
+                                text-indigo-600
+                                transition-colors
+                                hover:text-indigo-800
                             "
                         >
                             {showBcc
@@ -2212,11 +2258,13 @@ const ComposeModal = ({
                     </div>
 
 
-                    {/* =================================================
-                        CC
-                    ================================================= */}
-
-                    {showCc && (
+                    {/* CC and BCC recipient fields share one row */}
+                    {(showCc || showBcc) && (
+                        <div
+                            className={`mb-3 grid min-w-0 grid-cols-1 items-start gap-3 ${showCc && showBcc ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}
+                        >
+                            {showCc && (
+                                <div className="min-w-0 flex-1">
                         <RecipientField
                             label="CC"
                             recipients={cc}
@@ -2269,14 +2317,11 @@ const ComposeModal = ({
                                 getEmployeeEmail
                             }
                         />
-                    )}
+                                </div>
+                            )}
 
-
-                    {/* =================================================
-                        BCC
-                    ================================================= */}
-
-                    {showBcc && (
+                            {showBcc && (
+                                <div className="min-w-0 flex-1">
                         <RecipientField
                             label="BCC"
                             recipients={bcc}
@@ -2329,6 +2374,9 @@ const ComposeModal = ({
                                 getEmployeeEmail
                             }
                         />
+                                </div>
+                            )}
+                        </div>
                     )}
 
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 import {
     ArrowLeft,
@@ -36,6 +37,7 @@ const MessageViewer = ({
     onClose,
     onMessageDeleted,
     onMessageUpdated,
+    onComposeRequest,
     showCloseButton = false,
 }) => {
 
@@ -63,6 +65,99 @@ const MessageViewer = ({
 
     const [showMoreMenu, setShowMoreMenu] =
         useState(false);
+
+    const { user } = useAuth();
+
+    const getCurrentUserEmail = () =>
+        String(user?.email || user?.emailAddress || "").trim().toLowerCase();
+
+    const getMessageSubject = () => String(message?.subject || "").trim();
+
+    const uniquePeople = (people) => {
+        const currentEmail = getCurrentUserEmail();
+        const seen = new Set();
+        return people.filter((person) => {
+            const email = getPersonEmail(person).trim().toLowerCase();
+            if (!email || email === currentEmail || seen.has(email)) return false;
+            seen.add(email);
+            return true;
+        });
+    };
+
+    // console.log(message)
+    const requestCompose = (mode) => {
+        if (!message || !onComposeRequest) return;
+
+        const sender = message.sender;
+        const senderEmail = getPersonEmail(sender);
+        const subject = getMessageSubject();
+        const originalBody = String(message.body || message.text || message.content || "");
+
+        if (mode === "forward") {
+            const details = [
+                "",
+                "",
+                "---------- Forwarded message ----------",
+                `From: ${getPersonName(sender)}${senderEmail ? ` <${senderEmail}>` : ""}`,
+                `Date: ${formatDate(message.sentAt || message.createdAt)}`,
+                `Subject: ${subject || "(No Subject)"}`,
+                `To: ${normalizeRecipients(message.to).map(getPersonEmail).filter(Boolean).join(", ")}`,
+                normalizeRecipients(message.cc).length
+                    ? `Cc: ${normalizeRecipients(message.cc).map(getPersonEmail).filter(Boolean).join(", ")}`
+                    : "",
+                "",
+                originalBody,
+            ].filter((line) => line !== undefined);
+            onComposeRequest({
+                mode,
+                to: [],
+                cc: [],
+                bcc: [],
+                subject: /^fwd?:/i.test(subject) ? subject : `Fwd: ${subject || "(No Subject)"}`,
+                body: details.join("\n"),
+            });
+            return;
+        }
+
+        const allPeople = uniquePeople([
+            sender,
+            ...normalizeRecipients(message.to),
+            ...normalizeRecipients(message.cc),
+        ]);
+        const replyTo = uniquePeople([sender]);
+
+        const messageId = String(
+            message.id || message.Id || message._id || message.messageId || ""
+        );
+        const threadId = String(
+            message.threadId || message.ThreadId || message.conversationId || messageId || ""
+        );
+        const originalBody2 = String(
+            message.body || message.text || message.content || ""
+        );
+        const quotedBody = [
+            "",
+            "",
+            "---------- Original message ----------",
+            `From: ${getPersonName(sender)}${senderEmail ? ` <${senderEmail}>` : ""}`,
+            `Date: ${formatDate(message.sentAt || message.createdAt)}`,
+            `Subject: ${subject || "(No Subject)"}`,
+            "",
+            originalBody2,
+        ].join("\n");
+
+        onComposeRequest({
+            mode,
+            to: mode === "replyAll" ? allPeople : replyTo,
+            cc: [],
+            bcc: [],
+            subject: /^re:/i.test(subject) ? subject : `Re: ${subject || "(No Subject)"}`,
+            body: quotedBody,
+            threadId,
+            inReplyTo: messageId,
+            originalMessageId: messageId,
+        });
+    };
 
 
     /* =========================================================
@@ -755,7 +850,9 @@ const MessageViewer = ({
             if (onMessageDeleted) {
 
                 onMessageDeleted(
-                    message._id
+                    message._id,
+                    "trash",
+                    true
                 );
             }
 
@@ -872,7 +969,9 @@ const MessageViewer = ({
                 if (onMessageDeleted) {
 
                     onMessageDeleted(
-                        message._id
+                        message._id,
+                        "permanent",
+                        true
                     );
                 }
 
@@ -1471,11 +1570,7 @@ const MessageViewer = ({
 
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setShowReply(
-                                                true
-                                            )
-                                        }
+                                        onClick={() => requestCompose("reply")}
                                         className="
                                             rounded-lg
                                             p-1.5
@@ -1495,11 +1590,7 @@ const MessageViewer = ({
 
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setShowReply(
-                                                true
-                                            )
-                                        }
+                                        onClick={() => requestCompose("replyAll")}
                                         className="
                                             hidden
                                             rounded-lg
@@ -1521,6 +1612,7 @@ const MessageViewer = ({
 
                                     <button
                                         type="button"
+                                        onClick={() => requestCompose("forward")}
                                         className="
                                             hidden
                                             rounded-lg

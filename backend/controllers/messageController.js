@@ -12,120 +12,87 @@ const { sendEmail } = require("../services/emailService");
 ========================================================= */
 
 const normalizeRecipients = (value) => {
-    if (!value) {
-        return [];
-    }
+  if (!value) {
+    return [];
+  }
 
-    if (Array.isArray(value)) {
-        return value
-            .flatMap((item) => String(item).split(","))
-            .map((item) => item.trim().toLowerCase())
-            .filter(Boolean);
-    }
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => String(item).split(","))
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+  }
 
-    return String(value)
-        .split(",")
-        .map((item) => item.trim().toLowerCase())
-        .filter(Boolean);
+  return String(value)
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
 };
 
 const searchRecipients = async (req, res) => {
+  try {
+    const search = String(req.query.q || "")
+      .trim()
+      .toLowerCase();
 
-    try {
-
-        const search =
-            String(
-                req.query.q || ""
-            )
-                .trim()
-                .toLowerCase();
-
-
-        if (!search) {
-
-            return res.json({
-                success: true,
-                data: []
-            });
-        }
-
-
-        const Employee =
-            require("../models/Employee");
-
-
-        const employees =
-            await Employee.find({
-
-                isActive: true,
-
-                $or: [
-
-                    {
-                        name: {
-                            $regex: search,
-                            $options: "i"
-                        }
-                    },
-
-                    {
-                        email: {
-                            $regex: search,
-                            $options: "i"
-                        }
-                    },
-
-                    {
-                        employeeId: {
-                            $regex: search,
-                            $options: "i"
-                        }
-                    }
-
-                ]
-
-            })
-            .select(
-                "_id name email employeeId role isActive"
-            )
-            .limit(10)
-            .lean();
-
-
-        /*
-         * Don't return password or other
-         * sensitive Employee fields.
-         */
-
-
-        return res.json({
-
-            success: true,
-
-            data: employees
-
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Search recipients error:",
-            error
-        );
-
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to search recipients."
-
-        });
-
+    if (!search) {
+      return res.json({
+        success: true,
+        data: [],
+      });
     }
 
+    const Employee = require("../models/Employee");
+
+    const employees = await Employee.find({
+      isActive: true,
+
+      $or: [
+        {
+          name: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+
+        {
+          email: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+
+        {
+          employeeId: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ],
+    })
+      .select("_id name email employeeId role isActive")
+      .limit(10)
+      .lean();
+
+    /*
+     * Don't return password or other
+     * sensitive Employee fields.
+     */
+
+    return res.json({
+      success: true,
+
+      data: employees,
+    });
+  } catch (error) {
+    console.error("Search recipients error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to search recipients.",
+    });
+  }
 };
 
 /* =========================================================
@@ -133,95 +100,79 @@ const searchRecipients = async (req, res) => {
 ========================================================= */
 
 const resolveRecipients = async (emails = []) => {
+  const normalizedEmails = normalizeRecipients(emails);
 
-    const normalizedEmails = normalizeRecipients(emails);
+  if (!normalizedEmails.length) {
+    return [];
+  }
 
-    if (!normalizedEmails.length) {
-        return [];
-    }
+  const employees = await Employee.find({
+    email: {
+      $in: normalizedEmails,
+    },
+    isActive: true,
+  }).select("_id employeeId name email role isActive");
 
-    const employees = await Employee.find({
-        email: {
-            $in: normalizedEmails
-        },
-        isActive: true
-    }).select(
-        "_id employeeId name email role isActive"
-    );
-
-    return employees;
+  return employees;
 };
-
 
 /* =========================================================
    REMOVE DUPLICATE EMPLOYEES
 ========================================================= */
 
 const uniqueEmployees = (...groups) => {
+  const map = new Map();
 
-    const map = new Map();
+  for (const group of groups) {
+    for (const employee of group || []) {
+      if (!employee?._id) {
+        continue;
+      }
 
-    for (const group of groups) {
+      const id = employee._id.toString();
 
-        for (const employee of group || []) {
-
-            if (!employee?._id) {
-                continue;
-            }
-
-            const id = employee._id.toString();
-
-            if (!map.has(id)) {
-                map.set(id, employee);
-            }
-        }
+      if (!map.has(id)) {
+        map.set(id, employee);
+      }
     }
+  }
 
-    return [...map.values()];
+  return [...map.values()];
 };
-
 
 /* =========================================================
    BODY -> SIMPLE HTML
 ========================================================= */
 
 const bodyToHtml = (body = "") => {
-
-    return String(body)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n/g, "<br>");
+  return String(body)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
 };
-
 
 /* =========================================================
    ATTACHMENTS
 ========================================================= */
 
 const buildAttachments = (files = []) => {
-
-    return files.map((file) => ({
-        originalName: file.originalname,
-        fileName: file.filename,
-        filePath: file.path,
-        mimeType: file.mimetype,
-        size: file.size
-    }));
+  return files.map((file) => ({
+    originalName: file.originalname,
+    fileName: file.filename,
+    filePath: file.path,
+    mimeType: file.mimetype,
+    size: file.size,
+  }));
 };
-
 
 /* =========================================================
    GET EMPLOYEE EMAILS
 ========================================================= */
 
 const employeeEmails = (employees = []) => {
-
-    return employees
-        .map((employee) => employee?.email)
-        .filter(Boolean);
+  return employees.map((employee) => employee?.email).filter(Boolean);
 };
-
 
 /* =========================================================
    POST /api/messages
@@ -229,366 +180,267 @@ const employeeEmails = (employees = []) => {
 ========================================================= */
 
 const sendMessage = async (req, res) => {
+  try {
+    const subject = String(req.body.subject || "").trim();
 
-    try {
+    const body = String(req.body.body || "").trim();
 
-        const subject = String(
-            req.body.subject || ""
-        ).trim();
+    const toInput = req.body.to;
+    const ccInput = req.body.cc;
+    const bccInput = req.body.bcc;
 
-        const body = String(
-            req.body.body || ""
-        ).trim();
-
-        const toInput = req.body.to;
-        const ccInput = req.body.cc;
-        const bccInput = req.body.bcc;
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            VALIDATION
         ----------------------------------------- */
 
-        if (!subject) {
+    if (!subject) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject is required",
+      });
+    }
 
-            return res.status(400).json({
-                success: false,
-                message: "Subject is required"
-            });
-        }
+    if (!body) {
+      return res.status(400).json({
+        success: false,
+        message: "Message body is required",
+      });
+    }
 
-
-        if (!body) {
-
-            return res.status(400).json({
-                success: false,
-                message: "Message body is required"
-            });
-        }
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            RESOLVE RECIPIENTS
         ----------------------------------------- */
 
-        const toEmployees =
-            await resolveRecipients(toInput);
+    const toEmployees = await resolveRecipients(toInput);
 
-        const ccEmployees =
-            await resolveRecipients(ccInput);
+    const ccEmployees = await resolveRecipients(ccInput);
 
-        const bccEmployees =
-            await resolveRecipients(bccInput);
+    const bccEmployees = await resolveRecipients(bccInput);
 
-        /* -----------------------------------------
+    /* -----------------------------------------
            TO IS REQUIRED
         ----------------------------------------- */
 
-        if (!toEmployees.length) {
+    if (!toEmployees.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid To recipient is required",
+      });
+    }
 
-            return res.status(400).json({
-                success: false,
-                message:
-                    "At least one valid To recipient is required"
-            });
-        }
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            REMOVE DUPLICATES ACROSS TO / CC / BCC
 
            Priority:
            TO -> CC -> BCC
         ----------------------------------------- */
 
-        const usedIds = new Set();
+    const usedIds = new Set();
 
+    const uniqueTo = toEmployees.filter((employee) => {
+      const id = employee._id.toString();
 
-        const uniqueTo =
-            toEmployees.filter((employee) => {
+      if (usedIds.has(id)) {
+        return false;
+      }
 
-                const id =
-                    employee._id.toString();
+      usedIds.add(id);
 
-                if (usedIds.has(id)) {
-                    return false;
-                }
+      return true;
+    });
 
-                usedIds.add(id);
+    const uniqueCc = ccEmployees.filter((employee) => {
+      const id = employee._id.toString();
 
-                return true;
-            });
+      if (usedIds.has(id)) {
+        return false;
+      }
 
+      usedIds.add(id);
 
-        const uniqueCc =
-            ccEmployees.filter((employee) => {
+      return true;
+    });
 
-                const id =
-                    employee._id.toString();
+    const uniqueBcc = bccEmployees.filter((employee) => {
+      const id = employee._id.toString();
 
-                if (usedIds.has(id)) {
-                    return false;
-                }
+      if (usedIds.has(id)) {
+        return false;
+      }
 
-                usedIds.add(id);
+      usedIds.add(id);
 
-                return true;
-            });
+      return true;
+    });
 
-
-        const uniqueBcc =
-            bccEmployees.filter((employee) => {
-
-                const id =
-                    employee._id.toString();
-
-                if (usedIds.has(id)) {
-                    return false;
-                }
-
-                usedIds.add(id);
-
-                return true;
-            });
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            PREVENT SENDING TO SELF
 
            Optional but recommended.
         ----------------------------------------- */
 
-        const currentUserId =
-            req.user._id.toString();
+    const currentUserId = req.user._id.toString();
 
+    const selfInTo = uniqueTo.some(
+      (employee) => employee._id.toString() === currentUserId,
+    );
 
-        const selfInTo =
-            uniqueTo.some(
-                (employee) =>
-                    employee._id.toString() === currentUserId
-            );
+    if (selfInTo) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot send a message to yourself.",
+      });
+    }
 
-        if (selfInTo) {
-
-            return res.status(400).json({
-                success: false,
-                message:
-                    "You cannot send a message to yourself."
-            });
-        }
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            FINAL RECIPIENT CHECK
         ----------------------------------------- */
 
-        if (!uniqueTo.length) {
+    if (!uniqueTo.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid To recipient is required",
+      });
+    }
 
-            return res.status(400).json({
-                success: false,
-                message:
-                    "At least one valid To recipient is required"
-            });
-        }
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            ATTACHMENTS
         ----------------------------------------- */
 
-        const attachments =
-            buildAttachments(req.files || []);
+    const attachments = buildAttachments(req.files || []);
 
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            CREATE MESSAGE
         ----------------------------------------- */
 
-        const message =
-            await Message.create({
+    const message = await Message.create({
+      subject,
 
-                subject,
+      body,
 
-                body,
+      sender: req.user._id,
 
-                sender:
-                    req.user._id,
+      to: uniqueTo.map((employee) => employee._id),
 
-                to:
-                    uniqueTo.map(
-                        (employee) => employee._id
-                    ),
+      cc: uniqueCc.map((employee) => employee._id),
 
-                cc:
-                    uniqueCc.map(
-                        (employee) => employee._id
-                    ),
+      bcc: uniqueBcc.map((employee) => employee._id),
 
-                bcc:
-                    uniqueBcc.map(
-                        (employee) => employee._id
-                    ),
+      attachments,
 
-                attachments,
+      status: "SENT",
 
-                status: "SENT",
+      threadId: null,
 
-                threadId: null,
+      readBy: [req.user._id],
 
-                readBy: [
-                    req.user._id
-                ],
+      deletedBy: [],
 
-                deletedBy: [],
+      permanentlyDeletedBy: [],
 
-                permanentlyDeletedBy: [],
+      sentAt: new Date(),
+    });
 
-                sentAt: new Date()
-            });
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            SMTP EMAIL
         ----------------------------------------- */
 
-        try {
+    try {
+      await sendEmail({
+        from: req.user.email || process.env.SMTP_FROM || process.env.SMTP_USER,
 
-            await sendEmail({
+        to: employeeEmails(uniqueTo),
 
-                from:
-                    req.user.email ||
-                    process.env.SMTP_FROM ||
-                    process.env.SMTP_USER,
+        cc: employeeEmails(uniqueCc),
 
-                to:
-                    employeeEmails(uniqueTo),
+        bcc: employeeEmails(uniqueBcc),
 
-                cc:
-                    employeeEmails(uniqueCc),
+        subject,
 
-                bcc:
-                    employeeEmails(uniqueBcc),
+        text: body,
 
-                subject,
+        html: bodyToHtml(body),
 
-                text: body,
+        attachments: attachments.map((attachment) => ({
+          filename: attachment.originalName,
 
-                html: bodyToHtml(body),
+          path: attachment.filePath,
 
-                attachments:
-                    attachments.map((attachment) => ({
-                        filename:
-                            attachment.originalName,
+          contentType: attachment.mimeType,
+        })),
+      });
 
-                        path:
-                            attachment.filePath,
+      console.log("SMTP EMAIL SENT SUCCESSFULLY");
+    } catch (emailError) {
+      console.error("SMTP SEND FAILED:", emailError.message);
 
-                        contentType:
-                            attachment.mimeType
-                    }))
-            });
+      /*
+       * Internal DarkMail message is already saved.
+       *
+       * We intentionally do not delete it.
+       * The message remains available inside
+       * DarkMail even if external SMTP fails.
+       */
+    }
 
-            console.log(
-                "SMTP EMAIL SENT SUCCESSFULLY"
-            );
-
-        } catch (emailError) {
-
-            console.error(
-                "SMTP SEND FAILED:",
-                emailError.message
-            );
-
-            /*
-             * Internal DarkMail message is already saved.
-             *
-             * We intentionally do not delete it.
-             * The message remains available inside
-             * DarkMail even if external SMTP fails.
-             */
-        }
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            POPULATE RESPONSE
         ----------------------------------------- */
 
-        await message.populate([
-            {
-                path: "sender",
-                select:
-                    "employeeId name email role"
-            },
-            {
-                path: "to",
-                select:
-                    "employeeId name email"
-            },
-            {
-                path: "cc",
-                select:
-                    "employeeId name email"
-            },
-            {
-                path: "bcc",
-                select:
-                    "employeeId name email"
-            }
-        ]);
+    await message.populate([
+      {
+        path: "sender",
+        select: "employeeId name email role",
+      },
+      {
+        path: "to",
+        select: "employeeId name email",
+      },
+      {
+        path: "cc",
+        select: "employeeId name email",
+      },
+      {
+        path: "bcc",
+        select: "employeeId name email",
+      },
+    ]);
 
-        return res.status(201).json({
+    return res.status(201).json({
+      success: true,
 
-            success: true,
+      message: "Message sent successfully",
 
-            message:
-                "Message sent successfully",
+      data: message,
+    });
+  } catch (error) {
+    console.error("Send message error:", error);
 
-            data:
-                message
-        });
+    return res.status(500).json({
+      success: false,
 
+      message: "Failed to send message",
 
-    } catch (error) {
-
-        console.error(
-            "Send message error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to send message",
-
-            error:
-                process.env.NODE_ENV === "development"
-                    ? error.message
-                    : undefined
-        });
-    }
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };
-
 
 /* =========================================================
    GET MESSAGES
 ========================================================= */
 
 const getMessages = async (req, res) => {
-
-    try {
-
-        /* =====================================================
+  try {
+    /* =====================================================
            CURRENT USER
         ===================================================== */
 
-        const userId =
-            req.user._id;
+    const userId = req.user._id;
 
-        const userIdString =
-            userId.toString();
+    const userIdString = userId.toString();
 
-
-        /* =====================================================
+    /* =====================================================
            FOLDER
            
            Supported:
@@ -601,82 +453,39 @@ const getMessages = async (req, res) => {
            all
         ===================================================== */
 
-        const folder =
-            String(
-                req.query.folder ||
-                "inbox"
-            )
-                .trim()
-                .toLowerCase();
+    const folder = String(req.query.folder || "inbox")
+      .trim()
+      .toLowerCase();
 
-
-        /* =====================================================
+    /* =====================================================
            PAGINATION
         ===================================================== */
 
-        const page =
-            Math.max(
-                parseInt(
-                    req.query.page,
-                    10
-                ) || 1,
-                1
-            );
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
 
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
 
-        const limit =
-            Math.min(
-                Math.max(
-                    parseInt(
-                        req.query.limit,
-                        10
-                    ) || 20,
-                    1
-                ),
-                100
-            );
+    const skip = (page - 1) * limit;
 
-
-        const skip =
-            (page - 1) *
-            limit;
-
-
-        /* =====================================================
+    /* =====================================================
            VALID FOLDERS
         ===================================================== */
 
-        const validFolders = [
-            "inbox",
-            "sent",
-            "drafts",
-            "unread",
-            "trash",
-            "all",
-        ];
+    const validFolders = ["inbox", "sent", "drafts", "unread", "trash", "all"];
 
+    if (!validFolders.includes(folder)) {
+      return res.status(400).json({
+        success: false,
 
-        if (
-            !validFolders.includes(
-                folder
-            )
-        ) {
+        message:
+          "Invalid folder. Use inbox, sent, drafts, unread, trash or all.",
+      });
+    }
 
-            return res.status(
-                400
-            ).json({
-
-                success: false,
-
-                message:
-                    "Invalid folder. Use inbox, sent, drafts, unread, trash or all.",
-
-            });
-
-        }
-
-
-        /* =====================================================
+    /* =====================================================
            BASE QUERY
            
            Permanently deleted messages are hidden from
@@ -685,16 +494,13 @@ const getMessages = async (req, res) => {
            The trash query will also respect this condition.
         ===================================================== */
 
-        let query = {
+    let query = {
+      permanentlyDeletedBy: {
+        $ne: userId,
+      },
+    };
 
-            permanentlyDeletedBy: {
-                $ne: userId
-            },
-
-        };
-
-
-        /* =====================================================
+    /* =====================================================
            INBOX
            
            IMPORTANT:
@@ -711,71 +517,46 @@ const getMessages = async (req, res) => {
            Therefore this branch remains a true Inbox query.
         ===================================================== */
 
-        if (
-            folder ===
-            "inbox"
-        ) {
+    if (folder === "inbox") {
+      query.status = "SENT";
 
-            query.status =
-                "SENT";
+      query.$or = [
+        {
+          to: userId,
+        },
 
+        {
+          cc: userId,
+        },
 
-            query.$or = [
+        {
+          bcc: userId,
+        },
+      ];
 
-                {
-                    to: userId,
-                },
+      /*
+       * User has not moved this message
+       * to their own trash.
+       */
 
-                {
-                    cc: userId,
-                },
-
-                {
-                    bcc: userId,
-                },
-
-            ];
-
-
-            /*
-             * User has not moved this message
-             * to their own trash.
-             */
-
-            query.deletedBy = {
-                $ne: userId,
-            };
-
-        }
-
-
-        /* =====================================================
+      query.deletedBy = {
+        $ne: userId,
+      };
+    } else if (folder === "sent") {
+      /* =====================================================
            SENT
            
            User must be the sender.
         ===================================================== */
+      query.status = "SENT";
 
-        else if (
-            folder ===
-            "sent"
-        ) {
+      query.sender = userId;
 
-            query.status =
-                "SENT";
-
-
-            query.sender =
-                userId;
-
-
-            query.deletedBy = {
-                $ne: userId,
-            };
-
-        }
-
-
-        /* =====================================================
+      query.deletedBy = {
+        $ne: userId,
+      };
+    } else if (folder === "drafts") {
+      /* =====================================================
            DRAFTS
            
            User owns the draft.
@@ -785,79 +566,51 @@ const getMessages = async (req, res) => {
            status: "DRAFT"
            sender: userId
         ===================================================== */
+      query.status = "DRAFT";
 
-        else if (
-            folder ===
-            "drafts"
-        ) {
+      query.sender = userId;
 
-            query.status =
-                "DRAFT";
+      /*
+       * If a draft has been moved to trash,
+       * do not show it in Drafts.
+       */
 
-
-            query.sender =
-                userId;
-
-
-            /*
-             * If a draft has been moved to trash,
-             * do not show it in Drafts.
-             */
-
-            query.deletedBy = {
-                $ne: userId,
-            };
-
-        }
-
-
-        /* =====================================================
+      query.deletedBy = {
+        $ne: userId,
+      };
+    } else if (folder === "unread") {
+      /* =====================================================
            UNREAD
            
            User must be a recipient.
            
            readBy must not contain current user.
         ===================================================== */
+      query.status = "SENT";
 
-        else if (
-            folder ===
-            "unread"
-        ) {
+      query.$or = [
+        {
+          to: userId,
+        },
 
-            query.status =
-                "SENT";
+        {
+          cc: userId,
+        },
 
+        {
+          bcc: userId,
+        },
+      ];
 
-            query.$or = [
+      query.deletedBy = {
+        $ne: userId,
+      };
 
-                {
-                    to: userId,
-                },
-
-                {
-                    cc: userId,
-                },
-
-                {
-                    bcc: userId,
-                },
-
-            ];
-
-
-            query.deletedBy = {
-                $ne: userId,
-            };
-
-
-            query.readBy = {
-                $ne: userId,
-            };
-
-        }
-
-
-        /* =====================================================
+      query.readBy = {
+        $ne: userId,
+      };
+    } else if (folder === "trash") {
+      /* =====================================================
            TRASH
            
            Message was moved to trash by current user.
@@ -867,19 +620,9 @@ const getMessages = async (req, res) => {
            deletedBy can contain multiple users.
            We check whether current user exists in it.
         ===================================================== */
-
-        else if (
-            folder ===
-            "trash"
-        ) {
-
-            query.deletedBy =
-                userId;
-
-        }
-
-
-        /* =====================================================
+      query.deletedBy = userId;
+    } else if (folder === "all") {
+      /* =====================================================
            ALL
            
            This is the IMPORTANT branch for your new
@@ -902,42 +645,32 @@ const getMessages = async (req, res) => {
            
            individually for every message.
         ===================================================== */
+      query.$or = [
+        {
+          sender: userId,
+        },
 
-        else if (
-            folder ===
-            "all"
-        ) {
+        {
+          to: userId,
+        },
 
-            query.$or = [
+        {
+          cc: userId,
+        },
 
-                {
-                    sender: userId,
-                },
+        {
+          bcc: userId,
+        },
+      ];
+    }
 
-                {
-                    to: userId,
-                },
-
-                {
-                    cc: userId,
-                },
-
-                {
-                    bcc: userId,
-                },
-
-            ];
-
-        }
-
-
-        /* =====================================================
+    /* =====================================================
            DEBUG
            
            Uncomment when debugging.
         ===================================================== */
 
-        /*
+    /*
         console.log(
             "\n========================================"
         );
@@ -980,100 +713,67 @@ const getMessages = async (req, res) => {
         );
         */
 
-
-        /* =====================================================
+    /* =====================================================
            TOTAL COUNT
         ===================================================== */
 
-        const total =
-            await Message.countDocuments(
-                query
-            );
+    const total = await Message.countDocuments(query);
 
-
-        /* =====================================================
+    /* =====================================================
            FETCH MESSAGES
         ===================================================== */
 
-        const messages =
-            await Message.find(
-                query
-            )
+    const messages = await Message.find(query)
 
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    SENDER
                 --------------------------------------------- */
 
-                .populate(
-                    "sender",
-                    "employeeId name email role"
-                )
+      .populate("sender", "employeeId name email role")
 
-
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    TO
                 --------------------------------------------- */
 
-                .populate(
-                    "to",
-                    "employeeId name email"
-                )
+      .populate("to", "employeeId name email")
 
-
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    CC
                 --------------------------------------------- */
 
-                .populate(
-                    "cc",
-                    "employeeId name email"
-                )
+      .populate("cc", "employeeId name email")
 
-
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    BCC
                 --------------------------------------------- */
 
-                .populate(
-                    "bcc",
-                    "employeeId name email"
-                )
+      .populate("bcc", "employeeId name email")
 
-
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    LATEST FIRST
                 --------------------------------------------- */
 
-                .sort({
+      .sort({
+        sentAt: -1,
 
-                    sentAt: -1,
+        createdAt: -1,
+      })
 
-                    createdAt: -1,
-
-                })
-
-
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    PAGINATION
                 --------------------------------------------- */
 
-                .skip(
-                    skip
-                )
+      .skip(skip)
 
-                .limit(
-                    limit
-                )
+      .limit(limit)
 
-
-                /* ---------------------------------------------
+      /* ---------------------------------------------
                    RETURN PLAIN OBJECTS
                 --------------------------------------------- */
 
-                .lean();
+      .lean();
 
-
-        /* =====================================================
+    /* =====================================================
            FORMAT MESSAGES
            
            Add:
@@ -1082,46 +782,22 @@ const getMessages = async (req, res) => {
            mailFolder
         ===================================================== */
 
-        const formattedMessages =
-            messages.map(
-                (
-                    message
-                ) => {
-
-                    /* =========================================
+    const formattedMessages = messages.map((message) => {
+      /* =========================================
                        READ STATUS
                     ========================================= */
 
-                    const readBy =
-                        Array.isArray(
-                            message.readBy
-                        )
-                            ? message.readBy
-                            : [];
+      const readBy = Array.isArray(message.readBy) ? message.readBy : [];
 
+      const isRead = readBy.some((id) => id?.toString() === userIdString);
 
-                    const isRead =
-                        readBy.some(
-                            (
-                                id
-                            ) =>
-                                id?.toString() ===
-                                userIdString
-                        );
-
-
-                    /* =========================================
+      /* =========================================
                        SENDER ID
                     ========================================= */
 
-                    const senderId =
-                        message
-                            ?.sender
-                            ?._id
-                            ?.toString();
+      const senderId = message?.sender?._id?.toString();
 
-
-                    /* =========================================
+      /* =========================================
                        RECIPIENT IDS
                        
                        Combine:
@@ -1131,92 +807,37 @@ const getMessages = async (req, res) => {
                        bcc
                     ========================================= */
 
-                    const toUsers =
-                        Array.isArray(
-                            message.to
-                        )
-                            ? message.to
-                            : [];
+      const toUsers = Array.isArray(message.to) ? message.to : [];
 
+      const ccUsers = Array.isArray(message.cc) ? message.cc : [];
 
-                    const ccUsers =
-                        Array.isArray(
-                            message.cc
-                        )
-                            ? message.cc
-                            : [];
+      const bccUsers = Array.isArray(message.bcc) ? message.bcc : [];
 
+      const recipientIds = [...toUsers, ...ccUsers, ...bccUsers]
 
-                    const bccUsers =
-                        Array.isArray(
-                            message.bcc
-                        )
-                            ? message.bcc
-                            : [];
+        .map((user) => user?._id?.toString() || user?.toString())
 
+        .filter(Boolean);
 
-                    const recipientIds = [
-
-                        ...toUsers,
-
-                        ...ccUsers,
-
-                        ...bccUsers,
-
-                    ]
-
-                        .map(
-                            (
-                                user
-                            ) =>
-                                user?._id
-                                    ?.toString() ||
-                                user?.toString()
-                        )
-
-                        .filter(
-                            Boolean
-                        );
-
-
-                    /* =========================================
+      /* =========================================
                        USER RELATIONSHIP
                     ========================================= */
 
-                    const isSender =
-                        senderId ===
-                        userIdString;
+      const isSender = senderId === userIdString;
 
+      const isRecipient = recipientIds.includes(userIdString);
 
-                    const isRecipient =
-                        recipientIds.includes(
-                            userIdString
-                        );
-
-
-                    /* =========================================
+      /* =========================================
                        DELETED BY
                     ========================================= */
 
-                    const deletedBy =
-                        Array.isArray(
-                            message.deletedBy
-                        )
-                            ? message.deletedBy
-                            : [];
+      const deletedBy = Array.isArray(message.deletedBy)
+        ? message.deletedBy
+        : [];
 
+      const isInTrash = deletedBy.some((id) => id?.toString() === userIdString);
 
-                    const isInTrash =
-                        deletedBy.some(
-                            (
-                                id
-                            ) =>
-                                id?.toString() ===
-                                userIdString
-                        );
-
-
-                    /* =========================================
+      /* =========================================
                        DETERMINE MAIL FOLDER
                        
                        PRIORITY:
@@ -1227,2101 +848,1279 @@ const getMessages = async (req, res) => {
                        4. Inbox
                     ========================================= */
 
-                    let mailFolder =
-                        "inbox";
+      let mailFolder = "inbox";
 
-
-                    /* -----------------------------------------
+      /* -----------------------------------------
                        TRASH
                     ----------------------------------------- */
 
-                    if (
-                        isInTrash
-                    ) {
-
-                        mailFolder =
-                            "trash";
-
-                    }
-
-
-                    /* -----------------------------------------
+      if (isInTrash) {
+        mailFolder = "trash";
+      } else if (message.status === "DRAFT" && isSender) {
+        /* -----------------------------------------
                        DRAFT
                     ----------------------------------------- */
-
-                    else if (
-                        message.status ===
-                            "DRAFT" &&
-                        isSender
-                    ) {
-
-                        mailFolder =
-                            "drafts";
-
-                    }
-
-
-                    /* -----------------------------------------
+        mailFolder = "drafts";
+      } else if (message.status === "SENT" && isSender) {
+        /* -----------------------------------------
                        SENT
                     ----------------------------------------- */
-
-                    else if (
-                        message.status ===
-                            "SENT" &&
-                        isSender
-                    ) {
-
-                        mailFolder =
-                            "sent";
-
-                    }
-
-
-                    /* -----------------------------------------
+        mailFolder = "sent";
+      } else if (message.status === "SENT" && isRecipient) {
+        /* -----------------------------------------
                        INBOX
                     ----------------------------------------- */
-
-                    else if (
-                        message.status ===
-                            "SENT" &&
-                        isRecipient
-                    ) {
-
-                        mailFolder =
-                            "inbox";
-
-                    }
-
-
-                    /* -----------------------------------------
+        mailFolder = "inbox";
+      } else {
+        /* -----------------------------------------
                        FALLBACK
                     ----------------------------------------- */
+        mailFolder = folder === "all" ? "inbox" : folder;
+      }
 
-                    else {
-
-                        mailFolder =
-                            folder ===
-                            "all"
-                                ? "inbox"
-                                : folder;
-
-                    }
-
-
-                    /* =========================================
+      /* =========================================
                        RETURN MESSAGE
                     ========================================= */
 
-                    return {
+      return {
+        ...message,
 
-                        ...message,
+        isRead,
 
-                        isRead,
+        mailFolder,
+      };
+    });
 
-                        mailFolder,
-
-                    };
-
-                }
-            );
-
-
-        /* =====================================================
+    /* =====================================================
            TOTAL PAGES
         ===================================================== */
 
-        const pages =
-            Math.max(
-                Math.ceil(
-                    total /
-                    limit
-                ),
-                1
-            );
+    const pages = Math.max(Math.ceil(total / limit), 1);
 
-
-        /* =====================================================
+    /* =====================================================
            RESPONSE
         ===================================================== */
 
-        return res.status(
-            200
-        ).json({
+    return res.status(200).json({
+      success: true,
 
-            success: true,
+      /*
+       * Requested API folder.
+       *
+       * For Inbox frontend this will be:
+       *
+       * "all"
+       */
 
-            /*
-             * Requested API folder.
-             *
-             * For Inbox frontend this will be:
-             *
-             * "all"
-             */
+      folder,
 
-            folder,
+      count: formattedMessages.length,
 
-            count:
-                formattedMessages.length,
+      total,
 
-            total,
+      page,
 
-            page,
+      limit,
 
-            limit,
+      pages,
 
-            pages,
+      hasNext: page < pages,
 
-            hasNext:
-                page < pages,
+      hasPrevious: page > 1,
 
-            hasPrevious:
-                page > 1,
+      data: formattedMessages,
 
-            data:
-                formattedMessages,
-
-            messages:
-                formattedMessages,
-
-        });
-
-
-    } catch (
-        error
-    ) {
-
-        /* =====================================================
+      messages: formattedMessages,
+    });
+  } catch (error) {
+    /* =====================================================
            ERROR LOG
         ===================================================== */
 
-        console.error(
-            "Get messages error:",
-            error
-        );
+    console.error("Get messages error:", error);
 
-
-        /* =====================================================
+    /* =====================================================
            ERROR RESPONSE
         ===================================================== */
 
-        return res.status(
-            500
-        ).json({
+    return res.status(500).json({
+      success: false,
 
-            success: false,
+      message: "Failed to fetch messages",
 
-            message:
-                "Failed to fetch messages",
-
-            error:
-                process.env.NODE_ENV ===
-                "development"
-                    ? error.message
-                    : undefined,
-
-        });
-
-    }
-
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };
-
-
 
 /* =========================================================
    GET TRASH
 ========================================================= */
 
 const getTrash = async (req, res) => {
+  try {
+    const messages = await Message.find({
+      status: "SENT",
 
-    try {
+      deletedBy: req.user._id,
 
-        const messages =
-            await Message.find({
+      permanentlyDeletedBy: {
+        $ne: req.user._id,
+      },
+    })
 
-                status: "SENT",
+      .populate("sender", "employeeId name email role")
 
-                deletedBy:
-                    req.user._id,
+      .populate("to", "employeeId name email")
 
-                permanentlyDeletedBy: {
-                    $ne: req.user._id
-                }
-            })
+      .populate("cc", "employeeId name email")
 
-            .populate(
-                "sender",
-                "employeeId name email role"
-            )
+      .populate("bcc", "employeeId name email")
 
-            .populate(
-                "to",
-                "employeeId name email"
-            )
+      .sort({
+        sentAt: -1,
+      });
 
-            .populate(
-                "cc",
-                "employeeId name email"
-            )
+    return res.status(200).json({
+      success: true,
 
-            .populate(
-                "bcc",
-                "employeeId name email"
-            )
+      count: messages.length,
 
-            .sort({
-                sentAt: -1
-            });
+      data: messages,
+    });
+  } catch (error) {
+    console.error("Get trash error:", error);
 
+    return res.status(500).json({
+      success: false,
 
-        return res.status(200).json({
-
-            success: true,
-
-            count:
-                messages.length,
-
-            data:
-                messages
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Get trash error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to fetch trash"
-        });
-    }
+      message: "Failed to fetch trash",
+    });
+  }
 };
-
 
 /* =========================================================
    GET MESSAGE BY ID
 ========================================================= */
 
 const getMessageById = async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id)
 
-    try {
+      .populate("sender", "employeeId name email role")
 
-        const message =
-            await Message.findById(
-                req.params.id
-            )
+      .populate("to", "employeeId name email")
 
-            .populate(
-                "sender",
-                "employeeId name email role"
-            )
+      .populate("cc", "employeeId name email")
 
-            .populate(
-                "to",
-                "employeeId name email"
-            )
+      .populate("bcc", "employeeId name email");
 
-            .populate(
-                "cc",
-                "employeeId name email"
-            )
+    if (!message) {
+      return res.status(404).json({
+        success: false,
 
-            .populate(
-                "bcc",
-                "employeeId name email"
-            );
-
-
-        if (!message) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message:
-                    "Message not found"
-            });
-        }
-        const userId =
-            req.user._id.toString();
-
-
-        const hasAccess =
-
-            message.sender?._id?.toString() ===
-                userId ||
-
-            message.to?.some(
-                (user) =>
-                    user?._id?.toString() ===
-                    userId
-            ) ||
-
-            message.cc?.some(
-                (user) =>
-                    user?._id?.toString() ===
-                    userId
-            ) ||
-
-            message.bcc?.some(
-                (user) =>
-                    user?._id?.toString() ===
-                    userId
-            );
-
-
-        if (!hasAccess) {
-
-            return res.status(403).json({
-
-                success: false,
-
-                message:
-                    "You do not have access to this message"
-            });
-        }
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            data:
-                message
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Get message error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to fetch message"
-        });
+        message: "Message not found",
+      });
     }
-};
+    const userId = req.user._id.toString();
 
+    const hasAccess =
+      message.sender?._id?.toString() === userId ||
+      message.to?.some((user) => user?._id?.toString() === userId) ||
+      message.cc?.some((user) => user?._id?.toString() === userId) ||
+      message.bcc?.some((user) => user?._id?.toString() === userId);
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+
+        message: "You do not have access to this message",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+
+      data: message,
+    });
+  } catch (error) {
+    console.error("Get message error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to fetch message",
+    });
+  }
+};
 
 /* =========================================================
    MARK AS READ
 ========================================================= */
 
 const markAsRead = async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
 
-    try {
+    if (!message) {
+      return res.status(404).json({
+        success: false,
 
-        const message =
-            await Message.findById(
-                req.params.id
-            );
-
-
-        if (!message) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message:
-                    "Message not found"
-            });
-        }
-
-
-        const userId =
-            req.user._id;
-
-
-        const hasAccess =
-
-            message.to?.some(
-                (id) =>
-                    id.toString() ===
-                    userId.toString()
-            ) ||
-
-            message.cc?.some(
-                (id) =>
-                    id.toString() ===
-                    userId.toString()
-            ) ||
-
-            message.bcc?.some(
-                (id) =>
-                    id.toString() ===
-                    userId.toString()
-            );
-
-
-        if (!hasAccess) {
-
-            return res.status(403).json({
-
-                success: false,
-
-                message:
-                    "You cannot mark this message as read"
-            });
-        }
-
-
-        if (
-            !message.readBy.some(
-                (id) =>
-                    id.toString() ===
-                    userId.toString()
-            )
-        ) {
-
-            message.readBy.push(userId);
-
-            await message.save();
-        }
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            message:
-                "Message marked as read"
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Mark read error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to mark message as read"
-        });
+        message: "Message not found",
+      });
     }
-};
 
+    const userId = req.user._id;
+
+    const hasAccess =
+      message.to?.some((id) => id.toString() === userId.toString()) ||
+      message.cc?.some((id) => id.toString() === userId.toString()) ||
+      message.bcc?.some((id) => id.toString() === userId.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+
+        message: "You cannot mark this message as read",
+      });
+    }
+
+    if (!message.readBy.some((id) => id.toString() === userId.toString())) {
+      message.readBy.push(userId);
+
+      await message.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+
+      message: "Message marked as read",
+    });
+  } catch (error) {
+    console.error("Mark read error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to mark message as read",
+    });
+  }
+};
 
 /* =========================================================
    MOVE TO TRASH
 ========================================================= */
 
 const moveToTrash = async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
 
-    try {
+    if (!message) {
+      return res.status(404).json({
+        success: false,
 
-        const message =
-            await Message.findById(
-                req.params.id
-            );
-
-
-        if (!message) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message:
-                    "Message not found"
-            });
-        }
-
-
-        const userId =
-            req.user._id.toString();
-
-
-        const hasAccess =
-
-            message.sender?.toString() ===
-                userId ||
-
-            message.to?.some(
-                (id) =>
-                    id.toString() === userId
-            ) ||
-
-            message.cc?.some(
-                (id) =>
-                    id.toString() === userId
-            ) ||
-
-            message.bcc?.some(
-                (id) =>
-                    id.toString() === userId
-            );
-
-
-        if (!hasAccess) {
-
-            return res.status(403).json({
-
-                success: false,
-
-                message:
-                    "You do not have access to this message"
-            });
-        }
-
-
-        if (
-            !message.deletedBy.some(
-                (id) =>
-                    id.toString() === userId
-            )
-        ) {
-
-            message.deletedBy.push(
-                req.user._id
-            );
-        }
-
-
-        await message.save();
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            message:
-                "Message moved to trash"
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Move trash error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to move message to trash"
-        });
+        message: "Message not found",
+      });
     }
-};
 
+    const userId = req.user._id.toString();
+
+    const hasAccess =
+      message.sender?.toString() === userId ||
+      message.to?.some((id) => id.toString() === userId) ||
+      message.cc?.some((id) => id.toString() === userId) ||
+      message.bcc?.some((id) => id.toString() === userId);
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+
+        message: "You do not have access to this message",
+      });
+    }
+
+    if (!message.deletedBy.some((id) => id.toString() === userId)) {
+      message.deletedBy.push(req.user._id);
+    }
+
+    await message.save();
+
+    return res.status(200).json({
+      success: true,
+
+      message: "Message moved to trash",
+    });
+  } catch (error) {
+    console.error("Move trash error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to move message to trash",
+    });
+  }
+};
 
 /* =========================================================
    RESTORE
 ========================================================= */
 
 const restoreMessage = async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
 
-    try {
+    if (!message) {
+      return res.status(404).json({
+        success: false,
 
-        const message =
-            await Message.findById(
-                req.params.id
-            );
-
-
-        if (!message) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message:
-                    "Message not found"
-            });
-        }
-
-
-        message.deletedBy =
-            message.deletedBy.filter(
-                (id) =>
-                    id.toString() !==
-                    req.user._id.toString()
-            );
-
-
-        await message.save();
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            message:
-                "Message restored successfully"
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Restore error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to restore message"
-        });
+        message: "Message not found",
+      });
     }
-};
 
+    message.deletedBy = message.deletedBy.filter(
+      (id) => id.toString() !== req.user._id.toString(),
+    );
+
+    await message.save();
+
+    return res.status(200).json({
+      success: true,
+
+      message: "Message restored successfully",
+    });
+  } catch (error) {
+    console.error("Restore error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to restore message",
+    });
+  }
+};
 
 /* =========================================================
    PERMANENT DELETE
 ========================================================= */
 
-const permanentlyDeleteMessage =
-    async (req, res) => {
+const permanentlyDeleteMessage = async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
 
-        try {
+    if (!message) {
+      return res.status(404).json({
+        success: false,
 
-            const message =
-                await Message.findById(
-                    req.params.id
-                );
+        message: "Message not found",
+      });
+    }
 
+    const userId = req.user._id.toString();
 
-            if (!message) {
+    if (!message.permanentlyDeletedBy.some((id) => id.toString() === userId)) {
+      message.permanentlyDeletedBy.push(req.user._id);
+    }
 
-                return res.status(404).json({
+    await message.save();
 
-                    success: false,
+    return res.status(200).json({
+      success: true,
 
-                    message:
-                        "Message not found"
-                });
-            }
+      message: "Message permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanent delete error:", error);
 
+    return res.status(500).json({
+      success: false,
 
-            const userId =
-                req.user._id.toString();
-
-
-            if (
-                !message.permanentlyDeletedBy.some(
-                    (id) =>
-                        id.toString() ===
-                        userId
-                )
-            ) {
-
-                message.permanentlyDeletedBy.push(
-                    req.user._id
-                );
-            }
-
-
-            await message.save();
-
-
-            return res.status(200).json({
-
-                success: true,
-
-                message:
-                    "Message permanently deleted"
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "Permanent delete error:",
-                error
-            );
-
-            return res.status(500).json({
-
-                success: false,
-
-                message:
-                    "Failed to permanently delete message"
-            });
-        }
-    };
-
+      message: "Failed to permanently delete message",
+    });
+  }
+};
 
 /* =========================================================
    REPLY
 ========================================================= */
 
 const replyToMessage = async (req, res) => {
+  try {
+    const body = String(req.body.body || "").trim();
 
-    try {
+    if (!body) {
+      return res.status(400).json({
+        success: false,
 
-        const body =
-            String(
-                req.body.body || ""
-            ).trim();
+        message: "Reply body is required",
+      });
+    }
 
+    const parent = await Message.findById(req.params.id);
 
-        if (!body) {
+    if (!parent) {
+      return res.status(404).json({
+        success: false,
 
-            return res.status(400).json({
+        message: "Message not found",
+      });
+    }
 
-                success: false,
+    const currentUserId = req.user._id.toString();
 
-                message:
-                    "Reply body is required"
-            });
-        }
+    const recipientIds = new Set();
 
+    /* Sender becomes recipient */
 
-        const parent =
-            await Message.findById(
-                req.params.id
-            );
+    if (parent.sender && parent.sender.toString() !== currentUserId) {
+      recipientIds.add(parent.sender.toString());
+    }
 
+    /* Original To */
 
-        if (!parent) {
+    for (const id of parent.to || []) {
+      if (id.toString() !== currentUserId) {
+        recipientIds.add(id.toString());
+      }
+    }
 
-            return res.status(404).json({
+    /* Original CC */
 
-                success: false,
+    for (const id of parent.cc || []) {
+      if (id.toString() !== currentUserId) {
+        recipientIds.add(id.toString());
+      }
+    }
 
-                message:
-                    "Message not found"
-            });
-        }
+    const finalRecipientIds = [...recipientIds].map(
+      (id) => new mongoose.Types.ObjectId(id),
+    );
 
+    if (!finalRecipientIds.length) {
+      return res.status(400).json({
+        success: false,
 
-        const currentUserId =
-            req.user._id.toString();
+        message: "No valid reply recipient found",
+      });
+    }
 
+    const subject = parent.subject?.toLowerCase().startsWith("re:")
+      ? parent.subject
+      : `Re: ${parent.subject}`;
 
-        const recipientIds =
-            new Set();
+    const message = await Message.create({
+      subject,
 
+      body,
 
-        /* Sender becomes recipient */
+      sender: req.user._id,
 
-        if (
-            parent.sender &&
-            parent.sender.toString() !==
-                currentUserId
-        ) {
+      to: finalRecipientIds,
 
-            recipientIds.add(
-                parent.sender.toString()
-            );
-        }
+      cc: [],
 
+      bcc: [],
 
-        /* Original To */
+      attachments: [],
 
-        for (
-            const id of
-            parent.to || []
-        ) {
+      status: "SENT",
 
-            if (
-                id.toString() !==
-                currentUserId
-            ) {
+      threadId: parent.threadId || parent._id,
 
-                recipientIds.add(
-                    id.toString()
-                );
-            }
-        }
+      readBy: [req.user._id],
 
+      deletedBy: [],
 
-        /* Original CC */
+      permanentlyDeletedBy: [],
 
-        for (
-            const id of
-            parent.cc || []
-        ) {
+      sentAt: new Date(),
+    });
 
-            if (
-                id.toString() !==
-                currentUserId
-            ) {
+    await message.populate([
+      {
+        path: "sender",
+        select: "employeeId name email role",
+      },
+      {
+        path: "to",
+        select: "employeeId name email",
+      },
+      {
+        path: "cc",
+        select: "employeeId name email",
+      },
+    ]);
 
-                recipientIds.add(
-                    id.toString()
-                );
-            }
-        }
-
-
-        const finalRecipientIds =
-            [...recipientIds]
-                .map(
-                    (id) =>
-                        new mongoose.Types.ObjectId(id)
-                );
-
-
-        if (!finalRecipientIds.length) {
-
-            return res.status(400).json({
-
-                success: false,
-
-                message:
-                    "No valid reply recipient found"
-            });
-        }
-
-
-        const subject =
-            parent.subject
-                ?.toLowerCase()
-                .startsWith("re:")
-                ? parent.subject
-                : `Re: ${parent.subject}`;
-
-
-        const message =
-            await Message.create({
-
-                subject,
-
-                body,
-
-                sender:
-                    req.user._id,
-
-                to:
-                    finalRecipientIds,
-
-                cc: [],
-
-                bcc: [],
-
-                attachments: [],
-
-                status: "SENT",
-
-                threadId:
-                    parent.threadId ||
-                    parent._id,
-
-                readBy: [
-                    req.user._id
-                ],
-
-                deletedBy: [],
-
-                permanentlyDeletedBy: [],
-
-                sentAt: new Date()
-            });
-
-
-        await message.populate([
-            {
-                path: "sender",
-                select:
-                    "employeeId name email role"
-            },
-            {
-                path: "to",
-                select:
-                    "employeeId name email"
-            },
-            {
-                path: "cc",
-                select:
-                    "employeeId name email"
-            }
-        ]);
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            SEND REPLY THROUGH SMTP
         ----------------------------------------- */
 
-        try {
+    try {
+      const recipients = await Employee.find({
+        _id: {
+          $in: finalRecipientIds,
+        },
+        isActive: true,
+      }).select("email name employeeId");
 
-            const recipients =
-                await Employee.find({
-                    _id: {
-                        $in:
-                            finalRecipientIds
-                    },
-                    isActive: true
-                }).select(
-                    "email name employeeId"
-                );
+      await sendEmail({
+        from: req.user.email || process.env.SMTP_FROM || process.env.SMTP_USER,
 
+        to: recipients.map((employee) => employee.email),
 
-            await sendEmail({
+        subject,
 
-                from:
-                    req.user.email ||
-                    process.env.SMTP_FROM ||
-                    process.env.SMTP_USER,
+        text: body,
 
-                to:
-                    recipients.map(
-                        (employee) =>
-                            employee.email
-                    ),
-
-                subject,
-
-                text: body,
-
-                html:
-                    bodyToHtml(body)
-            });
-
-
-        } catch (emailError) {
-
-            console.error(
-                "Reply SMTP failed:",
-                emailError.message
-            );
-        }
-
-
-        return res.status(201).json({
-
-            success: true,
-
-            message:
-                "Reply sent successfully",
-
-            data:
-                message
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Reply error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to send reply"
-        });
+        html: bodyToHtml(body),
+      });
+    } catch (emailError) {
+      console.error("Reply SMTP failed:", emailError.message);
     }
-};
 
+    return res.status(201).json({
+      success: true,
+
+      message: "Reply sent successfully",
+
+      data: message,
+    });
+  } catch (error) {
+    console.error("Reply error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to send reply",
+    });
+  }
+};
 
 /* =========================================================
    THREAD
 ========================================================= */
 
 const getThread = async (req, res) => {
+  try {
+    const parent = await Message.findById(req.params.id);
 
-    try {
+    if (!parent) {
+      return res.status(404).json({
+        success: false,
 
-        const parent =
-            await Message.findById(
-                req.params.id
-            );
-
-
-        if (!parent) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message:
-                    "Message not found"
-            });
-        }
-
-
-        const threadId =
-            parent.threadId ||
-            parent._id;
-
-
-        const messages =
-            await Message.find({
-
-                $or: [
-
-                    {
-                        _id:
-                            threadId
-                    },
-
-                    {
-                        threadId
-                    }
-                ],
-
-                deletedBy: {
-                    $ne:
-                        req.user._id
-                },
-
-                permanentlyDeletedBy: {
-                    $ne:
-                        req.user._id
-                }
-
-            })
-
-            .populate(
-                "sender",
-                "employeeId name email role"
-            )
-
-            .populate(
-                "to",
-                "employeeId name email"
-            )
-
-            .populate(
-                "cc",
-                "employeeId name email"
-            )
-
-            .populate(
-                "bcc",
-                "employeeId name email"
-            )
-
-            .sort({
-                createdAt: 1
-            });
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            count:
-                messages.length,
-
-            data:
-                messages
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Get thread error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to fetch conversation"
-        });
+        message: "Message not found",
+      });
     }
-};
 
+    const threadId = parent.threadId || parent._id;
+
+    const messages = await Message.find({
+      $or: [
+        {
+          _id: threadId,
+        },
+
+        {
+          threadId,
+        },
+      ],
+
+      deletedBy: {
+        $ne: req.user._id,
+      },
+
+      permanentlyDeletedBy: {
+        $ne: req.user._id,
+      },
+    })
+
+      .populate("sender", "employeeId name email role")
+
+      .populate("to", "employeeId name email")
+
+      .populate("cc", "employeeId name email")
+
+      .populate("bcc", "employeeId name email")
+
+      .sort({
+        createdAt: 1,
+      });
+
+    return res.status(200).json({
+      success: true,
+
+      count: messages.length,
+
+      data: messages,
+    });
+  } catch (error) {
+    console.error("Get thread error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to fetch conversation",
+    });
+  }
+};
 
 /* =========================================================
    SAVE DRAFT
 ========================================================= */
 
 const saveDraft = async (req, res) => {
+  try {
+    const {
+      messageId,
+      subject = "",
+      body = "",
+      to = [],
+      cc = [],
+      bcc = [],
+    } = req.body;
 
-    try {
+    const toEmails = normalizeRecipients(to);
 
-        const {
-            messageId,
-            subject = "",
-            body = "",
-            to = [],
-            cc = [],
-            bcc = []
-        } = req.body;
+    const ccEmails = normalizeRecipients(cc);
 
+    const bccEmails = normalizeRecipients(bcc);
 
-        const toEmails =
-            normalizeRecipients(to);
+    const resolvedTo = await resolveRecipients(toEmails);
 
-        const ccEmails =
-            normalizeRecipients(cc);
+    const resolvedCc = await resolveRecipients(ccEmails);
 
-        const bccEmails =
-            normalizeRecipients(bcc);
+    const resolvedBcc = await resolveRecipients(bccEmails);
 
-
-        const resolvedTo =
-            await resolveRecipients(
-                toEmails
-            );
-
-        const resolvedCc =
-            await resolveRecipients(
-                ccEmails
-            );
-
-        const resolvedBcc =
-            await resolveRecipients(
-                bccEmails
-            );
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            UPDATE EXISTING DRAFT
         ----------------------------------------- */
 
-        if (messageId) {
+    if (messageId) {
+      const draft = await Message.findOne({
+        _id: messageId,
 
-            const draft =
-                await Message.findOne({
+        sender: req.user._id,
 
-                    _id:
-                        messageId,
+        status: "DRAFT",
+      });
 
-                    sender:
-                        req.user._id,
+      if (!draft) {
+        return res.status(404).json({
+          success: false,
 
-                    status:
-                        "DRAFT"
-                });
+          message: "Draft not found",
+        });
+      }
 
+      draft.subject = String(subject).trim();
 
-            if (!draft) {
+      draft.body = String(body);
 
-                return res.status(404).json({
+      draft.to = resolvedTo.map((employee) => employee._id);
 
-                    success: false,
+      draft.cc = resolvedCc.map((employee) => employee._id);
 
-                    message:
-                        "Draft not found"
-                });
-            }
+      draft.bcc = resolvedBcc.map((employee) => employee._id);
 
+      await draft.save();
 
-            draft.subject =
-                String(subject).trim();
+      return res.status(200).json({
+        success: true,
 
-            draft.body =
-                String(body);
+        message: "Draft updated successfully",
 
-            draft.to =
-                resolvedTo.map(
-                    (employee) =>
-                        employee._id
-                );
+        draft,
+      });
+    }
 
-            draft.cc =
-                resolvedCc.map(
-                    (employee) =>
-                        employee._id
-                );
-
-            draft.bcc =
-                resolvedBcc.map(
-                    (employee) =>
-                        employee._id
-                );
-
-
-            await draft.save();
-
-
-            return res.status(200).json({
-
-                success: true,
-
-                message:
-                    "Draft updated successfully",
-
-                draft
-            });
-        }
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            CREATE NEW DRAFT
         ----------------------------------------- */
 
-        const draft =
-            await Message.create({
+    const draft = await Message.create({
+      sender: req.user._id,
 
-                sender:
-                    req.user._id,
+      to: resolvedTo.map((employee) => employee._id),
 
-                to:
-                    resolvedTo.map(
-                        (employee) =>
-                            employee._id
-                    ),
+      cc: resolvedCc.map((employee) => employee._id),
 
-                cc:
-                    resolvedCc.map(
-                        (employee) =>
-                            employee._id
-                    ),
+      bcc: resolvedBcc.map((employee) => employee._id),
 
-                bcc:
-                    resolvedBcc.map(
-                        (employee) =>
-                            employee._id
-                    ),
+      subject: String(subject).trim(),
 
-                subject:
-                    String(subject).trim(),
+      body: String(body),
 
-                body:
-                    String(body),
+      status: "DRAFT",
 
-                status:
-                    "DRAFT",
+      sentAt: null,
 
-                sentAt:
-                    null,
+      readBy: [],
 
-                readBy: [],
+      deletedBy: [],
 
-                deletedBy: [],
+      permanentlyDeletedBy: [],
+    });
 
-                permanentlyDeletedBy: []
-            });
+    return res.status(201).json({
+      success: true,
 
+      message: "Draft saved successfully",
 
-        return res.status(201).json({
+      draft,
+    });
+  } catch (error) {
+    console.error("Save draft error:", error);
 
-            success: true,
+    return res.status(500).json({
+      success: false,
 
-            message:
-                "Draft saved successfully",
-
-            draft
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Save draft error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to save draft"
-        });
-    }
+      message: "Failed to save draft",
+    });
+  }
 };
-
 
 /* =========================================================
    GET DRAFTS
 ========================================================= */
 
 const getDrafts = async (req, res) => {
+  try {
+    const drafts = await Message.find({
+      sender: req.user._id,
 
-    try {
+      status: "DRAFT",
 
-        const drafts =
-            await Message.find({
+      permanentlyDeletedBy: {
+        $ne: req.user._id,
+      },
+    })
 
-                sender:
-                    req.user._id,
+      .populate("to", "employeeId name email")
 
-                status:
-                    "DRAFT",
+      .populate("cc", "employeeId name email")
 
-                permanentlyDeletedBy: {
-                    $ne:
-                        req.user._id
-                }
+      .populate("bcc", "employeeId name email")
 
-            })
+      .sort({
+        updatedAt: -1,
+      });
 
-            .populate(
-                "to",
-                "employeeId name email"
-            )
+    return res.status(200).json({
+      success: true,
 
-            .populate(
-                "cc",
-                "employeeId name email"
-            )
+      count: drafts.length,
 
-            .populate(
-                "bcc",
-                "employeeId name email"
-            )
+      data: drafts,
+    });
+  } catch (error) {
+    console.error("Get drafts error:", error);
 
-            .sort({
-                updatedAt: -1
-            });
+    return res.status(500).json({
+      success: false,
 
-
-        return res.status(200).json({
-
-            success: true,
-
-            count:
-                drafts.length,
-
-            data:
-                drafts
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Get drafts error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to fetch drafts"
-        });
-    }
+      message: "Failed to fetch drafts",
+    });
+  }
 };
-
 
 /* =========================================================
    SEND DRAFT
 ========================================================= */
 
 const sendDraft = async (req, res) => {
+  try {
+    const draft = await Message.findOne({
+      _id: req.params.id,
 
-    try {
+      sender: req.user._id,
 
-        const draft =
-            await Message.findOne({
+      status: "DRAFT",
+    });
 
-                _id:
-                    req.params.id,
+    if (!draft) {
+      return res.status(404).json({
+        success: false,
 
-                sender:
-                    req.user._id,
+        message: "Draft not found",
+      });
+    }
 
-                status:
-                    "DRAFT"
-            });
+    if (!draft.to?.length) {
+      return res.status(400).json({
+        success: false,
 
+        message: "Draft must have at least one recipient",
+      });
+    }
 
-        if (!draft) {
+    draft.status = "SENT";
 
-            return res.status(404).json({
+    draft.sentAt = new Date();
 
-                success: false,
+    draft.threadId = draft.threadId || null;
 
-                message:
-                    "Draft not found"
-            });
-        }
+    draft.readBy = [req.user._id];
 
+    draft.deletedBy = [];
 
-        if (!draft.to?.length) {
+    draft.permanentlyDeletedBy = [];
 
-            return res.status(400).json({
+    await draft.save();
 
-                success: false,
-
-                message:
-                    "Draft must have at least one recipient"
-            });
-        }
-
-
-        draft.status =
-            "SENT";
-
-        draft.sentAt =
-            new Date();
-
-        draft.threadId =
-            draft.threadId || null;
-
-        draft.readBy = [
-            req.user._id
-        ];
-
-        draft.deletedBy = [];
-
-        draft.permanentlyDeletedBy = [];
-
-
-        await draft.save();
-
-
-        /* -----------------------------------------
+    /* -----------------------------------------
            SMTP
         ----------------------------------------- */
 
-        try {
+    try {
+      const recipients = await Employee.find({
+        _id: {
+          $in: [...draft.to, ...draft.cc, ...draft.bcc],
+        },
 
-            const recipients =
-                await Employee.find({
+        isActive: true,
+      }).select("_id email");
 
-                    _id: {
-                        $in: [
-                            ...draft.to,
-                            ...draft.cc,
-                            ...draft.bcc
-                        ]
-                    },
+      const recipientMap = new Map(
+        recipients.map((employee) => [employee._id.toString(), employee.email]),
+      );
 
-                    isActive: true
+      const getEmails = (ids = []) =>
+        ids.map((id) => recipientMap.get(id.toString())).filter(Boolean);
 
-                }).select(
-                    "_id email"
-                );
+      await sendEmail({
+        from: req.user.email || process.env.SMTP_FROM || process.env.SMTP_USER,
 
+        to: getEmails(draft.to),
 
-            const recipientMap =
-                new Map(
-                    recipients.map(
-                        (employee) => [
-                            employee._id.toString(),
-                            employee.email
-                        ]
-                    )
-                );
+        cc: getEmails(draft.cc),
 
+        bcc: getEmails(draft.bcc),
 
-            const getEmails =
-                (ids = []) =>
-                    ids
-                        .map(
-                            (id) =>
-                                recipientMap.get(
-                                    id.toString()
-                                )
-                        )
-                        .filter(Boolean);
+        subject: draft.subject,
 
+        text: draft.body,
 
-            await sendEmail({
-
-                from:
-                    req.user.email ||
-                    process.env.SMTP_FROM ||
-                    process.env.SMTP_USER,
-
-                to:
-                    getEmails(draft.to),
-
-                cc:
-                    getEmails(draft.cc),
-
-                bcc:
-                    getEmails(draft.bcc),
-
-                subject:
-                    draft.subject,
-
-                text:
-                    draft.body,
-
-                html:
-                    bodyToHtml(
-                        draft.body
-                    )
-            });
-
-
-        } catch (emailError) {
-
-            console.error(
-                "Draft SMTP failed:",
-                emailError.message
-            );
-        }
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            message:
-                "Draft sent successfully",
-
-            draft
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Send draft error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to send draft"
-        });
+        html: bodyToHtml(draft.body),
+      });
+    } catch (emailError) {
+      console.error("Draft SMTP failed:", emailError.message);
     }
-};
 
+    return res.status(200).json({
+      success: true,
+
+      message: "Draft sent successfully",
+
+      draft,
+    });
+  } catch (error) {
+    console.error("Send draft error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to send draft",
+    });
+  }
+};
 
 /* =========================================================
    DELETE DRAFT
 ========================================================= */
 
 const deleteDraft = async (req, res) => {
+  try {
+    const draft = await Message.findOne({
+      _id: req.params.id,
 
-    try {
+      sender: req.user._id,
 
-        const draft =
-            await Message.findOne({
+      status: "DRAFT",
+    });
 
-                _id:
-                    req.params.id,
+    if (!draft) {
+      return res.status(404).json({
+        success: false,
 
-                sender:
-                    req.user._id,
-
-                status:
-                    "DRAFT"
-            });
-
-
-        if (!draft) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message:
-                    "Draft not found"
-            });
-        }
-
-
-        await Message.findByIdAndDelete(
-            req.params.id
-        );
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            message:
-                "Draft deleted successfully"
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Delete draft error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to delete draft"
-        });
+        message: "Draft not found",
+      });
     }
-};
 
+    await Message.findByIdAndDelete(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+
+      message: "Draft deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete draft error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to delete draft",
+    });
+  }
+};
 
 /* =========================================================
    SEARCH
 ========================================================= */
 
 const searchMessages = async (req, res) => {
+  try {
+    const search = String(req.query.q || "").trim();
 
-    try {
+    if (!search) {
+      return res.status(200).json({
+        success: true,
 
-        const search =
-            String(
-                req.query.q || ""
-            ).trim();
+        count: 0,
 
-
-        if (!search) {
-
-            return res.status(200).json({
-
-                success: true,
-
-                count: 0,
-
-                data: []
-            });
-        }
-
-
-        const regex =
-            new RegExp(
-                search.replace(
-                    /[.*+?^${}()|[\]\\]/g,
-                    "\\$&"
-                ),
-                "i"
-            );
-
-
-        const userId =
-            req.user._id;
-
-
-        const messages =
-            await Message.find({
-
-                status:
-                    "SENT",
-
-                permanentlyDeletedBy: {
-                    $ne:
-                        userId
-                },
-
-                deletedBy: {
-                    $ne:
-                        userId
-                },
-
-                $and: [
-
-                    {
-                        $or: [
-
-                            {
-                                sender:
-                                    userId
-                            },
-
-                            {
-                                to:
-                                    userId
-                            },
-
-                            {
-                                cc:
-                                    userId
-                            },
-
-                            {
-                                bcc:
-                                    userId
-                            }
-                        ]
-                    },
-
-                    {
-                        $or: [
-
-                            {
-                                subject:
-                                    regex
-                            },
-
-                            {
-                                body:
-                                    regex
-                            }
-                        ]
-                    }
-                ]
-
-            })
-
-            .populate(
-                "sender",
-                "employeeId name email"
-            )
-
-            .populate(
-                "to",
-                "employeeId name email"
-            )
-
-            .populate(
-                "cc",
-                "employeeId name email"
-            )
-
-            .populate(
-                "bcc",
-                "employeeId name email"
-            )
-
-            .sort({
-                sentAt: -1
-            })
-
-            .limit(50);
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            count:
-                messages.length,
-
-            data:
-                messages
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Search messages error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to search messages"
-        });
+        data: [],
+      });
     }
-};
 
+    const regex = new RegExp(
+      search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      "i",
+    );
+
+    const userId = req.user._id;
+
+    const messages = await Message.find({
+      status: "SENT",
+
+      permanentlyDeletedBy: {
+        $ne: userId,
+      },
+
+      deletedBy: {
+        $ne: userId,
+      },
+
+      $and: [
+        {
+          $or: [
+            {
+              sender: userId,
+            },
+
+            {
+              to: userId,
+            },
+
+            {
+              cc: userId,
+            },
+
+            {
+              bcc: userId,
+            },
+          ],
+        },
+
+        {
+          $or: [
+            {
+              subject: regex,
+            },
+
+            {
+              body: regex,
+            },
+          ],
+        },
+      ],
+    })
+
+      .populate("sender", "employeeId name email")
+
+      .populate("to", "employeeId name email")
+
+      .populate("cc", "employeeId name email")
+
+      .populate("bcc", "employeeId name email")
+
+      .sort({
+        sentAt: -1,
+      })
+
+      .limit(50);
+
+    return res.status(200).json({
+      success: true,
+
+      count: messages.length,
+
+      data: messages,
+    });
+  } catch (error) {
+    console.error("Search messages error:", error);
+
+    return res.status(500).json({
+      success: false,
+
+      message: "Failed to search messages",
+    });
+  }
+};
 
 /* =========================================================
    UNREAD COUNT
 ========================================================= */
 
 const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user._id;
 
-    try {
+    const count = await Message.countDocuments({
+      status: "SENT",
 
-        const userId =
-            req.user._id;
+      $or: [
+        {
+          to: userId,
+        },
 
+        {
+          cc: userId,
+        },
 
-        const count =
-            await Message.countDocuments({
+        {
+          bcc: userId,
+        },
+      ],
 
-                status:
-                    "SENT",
+      readBy: {
+        $ne: userId,
+      },
 
-                $or: [
+      deletedBy: {
+        $ne: userId,
+      },
 
-                    {
-                        to:
-                            userId
-                    },
+      permanentlyDeletedBy: {
+        $ne: userId,
+      },
+    });
 
-                    {
-                        cc:
-                            userId
-                    },
+    return res.status(200).json({
+      success: true,
 
-                    {
-                        bcc:
-                            userId
-                    }
-                ],
+      count,
+    });
+  } catch (error) {
+    console.error("Unread count error:", error);
 
-                readBy: {
-                    $ne:
-                        userId
-                },
+    return res.status(500).json({
+      success: false,
 
-                deletedBy: {
-                    $ne:
-                        userId
-                },
-
-                permanentlyDeletedBy: {
-                    $ne:
-                        userId
-                }
-            });
-
-
-        return res.status(200).json({
-
-            success: true,
-
-            count
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Unread count error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to get unread count"
-        });
-    }
+      message: "Failed to get unread count",
+    });
+  }
 };
 
+/* =========================================================
+   GET ATTACHMENT
+========================================================= */
+const getMessageAttachments = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    console.log("Attachment metadata requested");
+    console.log("Message ID:", messageId);
+    console.log("Database:", Message.db.name);
+    console.log("Collection:", Message.collection.name);
+
+    // Use the same model and database as getMessageById.
+    const message = await Message.findById(messageId)
+      .select("sender to cc bcc attachments")
+      .lean();
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    const userId = String(req.user._id);
+
+    const hasAccess =
+      String(message.sender) === userId ||
+      (message.to || []).some((id) => String(id) === userId) ||
+      (message.cc || []).some((id) => String(id) === userId) ||
+      (message.bcc || []).some((id) => String(id) === userId);
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to these attachments",
+      });
+    }
+
+    const attachments = (message.attachments || []).map(
+      (attachment, index) => ({
+        index,
+        originalName: attachment.originalName,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        size: attachment.size,
+        downloadUrl: `/api/messages/${messageId}/attachments/${index}`,
+      }),
+    );
+
+    return res.status(200).json({
+      success: true,
+      messageId,
+      count: attachments.length,
+      attachments,
+    });
+  } catch (error) {
+    console.error("Get message attachments error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve attachments",
+    });
+  }
+};
 
 /* =========================================================
    DOWNLOAD ATTACHMENT
 ========================================================= */
 
-const downloadAttachment =
-    async (req, res) => {
+const downloadAttachment = async (req, res) => {
+  try {
+    const { messageId, attachmentIndex } = req.params;
 
-        try {
+    const index = Number(attachmentIndex);
 
-            const {
-                messageId,
-                attachmentIndex
-            } = req.params;
+    if (!Number.isInteger(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
 
+        message: "Invalid attachment index",
+      });
+    }
 
-            const index =
-                Number(
-                    attachmentIndex
-                );
+    const message = await Message.findById(messageId);
 
+    if (!message) {
+      return res.status(404).json({
+        success: false,
 
-            if (
-                !Number.isInteger(index) ||
-                index < 0
-            ) {
+        message: "Message not found",
+      });
+    }
 
-                return res.status(400).json({
+    const userId = req.user._id.toString();
 
-                    success: false,
+    const hasAccess =
+      message.sender?.toString() === userId ||
+      message.to?.some((id) => id.toString() === userId) ||
+      message.cc?.some((id) => id.toString() === userId) ||
+      message.bcc?.some((id) => id.toString() === userId);
 
-                    message:
-                        "Invalid attachment index"
-                });
-            }
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
 
+        message: "You do not have access to this attachment",
+      });
+    }
 
-            const message =
-                await Message.findById(
-                    messageId
-                );
+    if (!message.attachments || !message.attachments[index]) {
+      return res.status(404).json({
+        success: false,
 
+        message: "Attachment not found",
+      });
+    }
 
-            if (!message) {
+    const attachment = message.attachments[index];
 
-                return res.status(404).json({
+    const filePath = path.resolve(attachment.filePath);
 
-                    success: false,
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
 
-                    message:
-                        "Message not found"
-                });
-            }
+        message: "Attachment file does not exist",
+      });
+    }
 
+    res.download(
+      filePath,
 
-            const userId =
-                req.user._id.toString();
+      attachment.originalName,
 
+      (error) => {
+        if (error) {
+          console.error("Download error:", error);
 
-            const hasAccess =
+          if (!res.headersSent) {
+            res.status(500).json({
+              success: false,
 
-                message.sender?.toString() ===
-                    userId ||
-
-                message.to?.some(
-                    (id) =>
-                        id.toString() ===
-                        userId
-                ) ||
-
-                message.cc?.some(
-                    (id) =>
-                        id.toString() ===
-                        userId
-                ) ||
-
-                message.bcc?.some(
-                    (id) =>
-                        id.toString() ===
-                        userId
-                );
-
-
-            if (!hasAccess) {
-
-                return res.status(403).json({
-
-                    success: false,
-
-                    message:
-                        "You do not have access to this attachment"
-                });
-            }
-
-
-            if (
-                !message.attachments ||
-                !message.attachments[index]
-            ) {
-
-                return res.status(404).json({
-
-                    success: false,
-
-                    message:
-                        "Attachment not found"
-                });
-            }
-
-
-            const attachment =
-                message.attachments[index];
-
-
-            const filePath =
-                path.resolve(
-                    attachment.filePath
-                );
-
-
-            if (
-                !fs.existsSync(filePath)
-            ) {
-
-                return res.status(404).json({
-
-                    success: false,
-
-                    message:
-                        "Attachment file does not exist"
-                });
-            }
-
-
-            res.download(
-
-                filePath,
-
-                attachment.originalName,
-
-                (error) => {
-
-                    if (error) {
-
-                        console.error(
-                            "Download error:",
-                            error
-                        );
-
-                        if (
-                            !res.headersSent
-                        ) {
-
-                            res.status(500).json({
-
-                                success: false,
-
-                                message:
-                                    "Failed to download attachment"
-                            });
-                        }
-                    }
-                }
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Download attachment error:",
-                error
-            );
-
-            if (
-                !res.headersSent
-            ) {
-
-                return res.status(500).json({
-
-                    success: false,
-
-                    message:
-                        "Server error while downloading attachment"
-                });
-            }
+              message: "Failed to download attachment",
+            });
+          }
         }
-    };
+      },
+    );
+  } catch (error) {
+    console.error("Download attachment error:", error);
 
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+
+        message: "Server error while downloading attachment",
+      });
+    }
+  }
+};
 
 /* =========================================================
    EXPORTS
 ========================================================= */
 
 module.exports = {
+  sendMessage,
 
-    sendMessage,
+  getMessages,
 
-    getMessages,
+  getTrash,
 
-    getTrash,
+  getMessageById,
 
-    getMessageById,
+  markAsRead,
 
-    markAsRead,
+  moveToTrash,
 
-    moveToTrash,
+  restoreMessage,
 
-    restoreMessage,
+  permanentlyDeleteMessage,
 
-    permanentlyDeleteMessage,
+  replyToMessage,
 
-    replyToMessage,
+  getThread,
 
-    getThread,
+  saveDraft,
 
-    saveDraft,
+  getDrafts,
 
-    getDrafts,
+  sendDraft,
 
-    sendDraft,
+  deleteDraft,
 
-    deleteDraft,
+  searchMessages,
 
-    searchMessages,
+  getUnreadCount,
 
-    getUnreadCount,
+  getMessageAttachments,
+  downloadAttachment,
 
-    downloadAttachment,
-    
-    searchRecipients
+  searchRecipients,
 };
