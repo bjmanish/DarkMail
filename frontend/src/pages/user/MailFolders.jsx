@@ -3970,20 +3970,6 @@ const MailFolder = ({
 
 };
 
-
-/* =========================================================
-   INBOX
-
-   This screen displays:
-
-   [Inbox]
-   [Sent]
-   [Draft]
-   [Trash]
-
-   based on message.mailFolder.
-========================================================= */
-
 export const Inbox = () => {
 
     return (

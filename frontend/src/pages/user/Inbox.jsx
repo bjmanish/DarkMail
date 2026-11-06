@@ -5,6 +5,7 @@ import React, {
 } from "react";
 
 import {
+    useLocation,
     useNavigate,
 } from "react-router-dom";
 
@@ -54,6 +55,7 @@ const FOLDERS = [
 const Inbox = () => {
 
     const navigate = useNavigate();
+    const location = useLocation();
 
 
     // ============================================================
@@ -987,6 +989,31 @@ const Inbox = () => {
             }
 
         };
+
+
+    // ============================================================
+    // OPEN MESSAGE PASSED FROM TOPBAR GLOBAL SEARCH
+    // ============================================================
+
+    useEffect(() => {
+        const message = location.state?.openMessage;
+
+        if (!message?._id) {
+            return;
+        }
+
+        // Reuse the same viewer flow as clicking a message in the inbox list.
+        handleSelectMessage(message);
+
+        // Clear navigation state so refresh/back navigation does not reopen it.
+        navigate(
+            `${location.pathname}${location.search}`,
+            {
+                replace: true,
+                state: null,
+            }
+        );
+    }, [location.key]);
 
 
     // ============================================================

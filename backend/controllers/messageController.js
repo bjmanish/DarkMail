@@ -1766,101 +1766,92 @@ const deleteDraft = async (req, res) => {
 /* =========================================================
    SEARCH
 ========================================================= */
-
 const searchMessages = async (req, res) => {
   try {
     const search = String(req.query.q || "").trim();
 
+    const userId = req.user?._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     if (!search) {
       return res.status(200).json({
         success: true,
-
         count: 0,
-
         data: [],
       });
     }
 
-    const regex = new RegExp(
-      search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-      "i",
-    );
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    const userId = req.user._id;
+    const regex = new RegExp(escapedSearch, "i");
 
     const messages = await Message.find({
-      status: "SENT",
-
       permanentlyDeletedBy: {
-        $ne: userId,
-      },
-
-      deletedBy: {
         $ne: userId,
       },
 
       $and: [
         {
           $or: [
-            {
-              sender: userId,
-            },
-
-            {
-              to: userId,
-            },
-
-            {
-              cc: userId,
-            },
-
-            {
-              bcc: userId,
-            },
+            { sender: userId },
+            { to: userId },
+            { cc: userId },
+            { bcc: userId },
           ],
         },
-
         {
-          $or: [
-            {
-              subject: regex,
-            },
-
-            {
-              body: regex,
-            },
-          ],
+          $or: [{ subject: regex }, { body: regex }],
         },
       ],
     })
-
       .populate("sender", "employeeId name email")
-
       .populate("to", "employeeId name email")
-
       .populate("cc", "employeeId name email")
-
       .populate("bcc", "employeeId name email")
-
       .sort({
         sentAt: -1,
+        createdAt: -1,
       })
+      .limit(100)
+      .lean();
 
-      .limit(50);
+    const currentUserId = String(userId);
+
+    const data = messages.map((message) => {
+      const isDeleted = (message.deletedBy || []).some(
+        (id) => String(id) === currentUserId,
+      );
+
+      let folder = "inbox";
+
+      if (isDeleted) {
+        folder = "trash";
+      } else if (String(message.sender?._id) === currentUserId) {
+        folder = message.status === "DRAFT" ? "drafts" : "sent";
+      }
+
+      return {
+        ...message,
+        folder,
+      };
+    });
 
     return res.status(200).json({
       success: true,
-
-      count: messages.length,
-
-      data: messages,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error("Search messages error:", error);
 
     return res.status(500).json({
       success: false,
-
       message: "Failed to search messages",
     });
   }

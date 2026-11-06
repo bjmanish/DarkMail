@@ -31,9 +31,15 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
-import { getUnreadCountApi } from "../../api/messageApi";
+import {
+    getUnreadCountApi,
+    searchMessagesApi,
+    getMessageByIdApi,
+    markMessageAsReadApi,
+} from "../../api/messageApi";
 
 import ComposeModal from "../mail/ComposeModal";
+import MessageViewer from "../mail/MessageViewer";
 
 import Hero from "../../assets/hero.png";
 
@@ -76,6 +82,16 @@ const MainLayout = () => {
 
     const [searchText, setSearchText] =
         useState("");
+
+    const [searchResults, setSearchResults] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState("");
+    const [searchSubmitted, setSearchSubmitted] = useState(false);
+
+    // Global-search message viewer state
+    const [searchSelectedMessage, setSearchSelectedMessage] = useState(null);
+    const [searchMessageLoading, setSearchMessageLoading] = useState(false);
+    const [searchMessageError, setSearchMessageError] = useState("");
 
     const [unreadCount, setUnreadCount] =
         useState(0);
@@ -459,14 +475,14 @@ const MainLayout = () => {
         const sessionId =
             getSessionId();
 
-        if (sessionId) {
+        // if (sessionId) {
 
-            params.set(
-                "sessionId",
-                sessionId
-            );
+        //     params.set(
+        //         "sessionId",
+        //         sessionId
+        //     );
 
-        }
+        // }
 
         Object.entries(
             extraParams
@@ -593,34 +609,124 @@ const MainLayout = () => {
        SEARCH
     ========================================================== */
 
-    const handleSearchSubmit =
-        (event) => {
+    const handleSearchSubmit = async (event) => {
+        event.preventDefault();
 
-            event.preventDefault();
+        const query = searchText.trim();
 
-            const query =
-                searchText.trim();
+        if (!query) {
+            setSearchResults([]);
+            setSearchError("Please enter a search keyword.");
+            setSearchSubmitted(false);
+            return;
+        }
 
-            if (!query) {
-                return;
+        try {
+            setSearchLoading(true);
+            setSearchError("");
+            setSearchSubmitted(true);
+            setSearchResults([]);
+
+            const response = await searchMessagesApi(query);
+
+            if (!response?.success) {
+                throw new Error(response?.message || "Unable to search messages.");
             }
 
-            navigate(
-                buildMailUrl(
-                    "inbox",
-                    {
-                        search: query,
-                    }
-                )
+            setSearchResults(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            console.error("Global message search failed:", error);
+            setSearchError(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Failed to fetch messages. Please try again."
             );
+        } finally {
+            setSearchLoading(false);
+        }
+    };
 
-            setSearchOpen(false);
-            setSearchText("");
+    // Open search results directly in the same MessageViewer component
+    // used by Inbox. Fetch the complete message before rendering it.
+    const handleOpenSearchResult = async (message) => {
+        const messageId = message?._id;
 
-        };
+        if (!messageId) {
+            setSearchError("This search result does not contain a valid message ID.");
+            return;
+        }
+
+        setSearchOpen(false);
+        setSearchText("");
+        setSearchResults([]);
+        setSearchError("");
+        setSearchSubmitted(false);
+        setSearchMessageError("");
+        setSearchSelectedMessage(null);
+        setSearchMessageLoading(true);
+
+        try {
+            if (!message.isRead) {
+                try {
+                    await markMessageAsReadApi(messageId);
+                } catch (readError) {
+                    console.warn("Unable to mark searched message as read:", readError);
+                }
+            }
+
+            const response = await getMessageByIdApi(messageId);
+
+            if (!response?.success) {
+                throw new Error(response?.message || "Unable to load this message.");
+            }
+
+            const fullMessage = response?.data || response?.message || message;
+
+            if (!fullMessage || typeof fullMessage !== "object") {
+                throw new Error("The server returned an invalid message.");
+            }
+
+            setSearchSelectedMessage(fullMessage);
+        } catch (error) {
+            console.error("Unable to open searched message:", error);
+            setSearchMessageError(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to open this message. Please try again."
+            );
+        } finally {
+            setSearchMessageLoading(false);
+        }
+    };
+
+    const closeSearchMessageViewer = () => {
+        setSearchSelectedMessage(null);
+        setSearchMessageError("");
+        setSearchMessageLoading(false);
+    };
+
+    const handleSearchMessageDeleted = () => {
+        closeSearchMessageViewer();
+        loadUnreadCount();
+    };
+
+    const handleSearchMessageUpdated = async () => {
+        if (!searchSelectedMessage?._id) return;
+
+        try {
+            const response = await getMessageByIdApi(searchSelectedMessage._id);
+            if (response?.success) {
+                setSearchSelectedMessage(
+                    response?.data || response?.message || searchSelectedMessage
+                );
+            }
+        } catch (error) {
+            console.error("Unable to refresh searched message:", error);
+        }
+    };
 
 
-    /* =========================================================
+        /* =========================================================
        TIME
     ========================================================== */
 
@@ -1372,7 +1478,7 @@ const MainLayout = () => {
                         top-0
                         z-30
                         flex
-                        min-h-[76px]
+                        min-h-[70px]
                         shrink-0
                         items-center
                         justify-between
@@ -1420,6 +1526,7 @@ const MainLayout = () => {
                         <div
                             className="
                                 min-w-0
+                                ml-2
                             "
                         >
 
@@ -1430,6 +1537,7 @@ const MainLayout = () => {
                                     font-bold
                                     text-gray-900
                                     sm:text-xl
+                                    
                                 "
                             >
                                 {pageTitle}
@@ -1486,27 +1594,117 @@ const MainLayout = () => {
                         </div>
 
 
-                        {/* SEARCH */}
+                        {/* TOPBAR SEARCH */}
+                        <div className="relative flex items-center">
+                            {!searchOpen ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchOpen(true)}
+                                    title="Search messages"
+                                    className="rounded-xl p-2.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                >
+                                    <Search size={19} />
+                                </button>
+                            ) : (
+                                <form
+                                    onSubmit={handleSearchSubmit}
+                                    className="flex w-[min(72vw,420px)] items-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2 shadow-sm ring-2 ring-indigo-50"
+                                >
+                                    <Search size={18} className="shrink-0 text-gray-400" />
+                                    <input
+                                        autoFocus
+                                        type="search"
+                                        value={searchText}
+                                        onChange={(event) => {
+                                            setSearchText(event.target.value);
+                                            setSearchError("");
+                                            setSearchSubmitted(false);
+                                        }}
+                                        placeholder="Search all messages..."
+                                        className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                                    />
+                                    {searchLoading ? (
+                                        <RefreshCw size={16} className="animate-spin text-indigo-600" />
+                                    ) : (
+                                        <button
+                                            type="submit"
+                                            disabled={!searchText.trim()}
+                                            title="Search"
+                                            className="rounded-lg p-1.5 text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            <Search size={17} />
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearchOpen(false);
+                                            setSearchText("");
+                                            setSearchResults([]);
+                                            setSearchError("");
+                                            setSearchSubmitted(false);
+                                        }}
+                                        title="Close search"
+                                        className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </form>
+                            )}
 
-                        {/* <button
-                            type="button"
-                            onClick={() =>
-                                setSearchOpen(
-                                    true
-                                )
-                            }
-                            title="Search"
-                            className="
-                                rounded-xl
-                                p-2.5
-                                text-gray-500
-                                transition
-                                hover:bg-gray-100
-                                hover:text-gray-900
-                            "
-                        >
-                            <Search size={19} />
-                        </button> */}
+                            {searchOpen && (searchLoading || searchError || searchSubmitted || searchText.trim()) && (
+                                <div className="absolute right-0 top-full z-[120] mt-2 max-h-[min(65vh,520px)] w-[min(90vw,440px)] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+                                    {searchLoading && (
+                                        <div className="flex items-center justify-center gap-2 p-5 text-sm text-gray-500">
+                                            <RefreshCw size={16} className="animate-spin" /> Fetching messages...
+                                        </div>
+                                    )}
+                                    {!searchLoading && searchError && (
+                                        <p className="p-4 text-sm text-red-600">{searchError}</p>
+                                    )}
+                                    {!searchLoading && !searchError && searchSubmitted && searchResults.length === 0 && (
+                                        <div className="p-6 text-center">
+                                            <p className="text-sm font-medium text-gray-700">No messages found</p>
+                                            <p className="mt-1 text-xs text-gray-400">Try another keyword.</p>
+                                        </div>
+                                    )}
+                                    {!searchLoading && searchResults.length > 0 && (
+                                        <>
+                                            <div className="border-b border-gray-100 px-4 py-2 text-xs font-semibold text-gray-500">
+                                                {searchResults.length} message{searchResults.length === 1 ? "" : "s"} found
+                                            </div>
+                                            <div className="divide-y divide-gray-100">
+                                                {searchResults.map((message) => {
+                                                    const senderName = message.sender?.name || message.sender?.email || "Unknown sender";
+                                                    const preview = String(message.body || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+                                                    const messageDate = message.sentAt || message.createdAt;
+                                                    return (
+                                                        <button
+                                                            key={message._id}
+                                                            type="button"
+                                                            onClick={() => handleOpenSearchResult(message)}
+                                                            className="block w-full px-4 py-3 text-left transition hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
+                                                        >
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="truncate text-sm font-semibold text-gray-900">{message.subject || "(No subject)"}</p>
+                                                                    <p className="mt-1 truncate text-xs text-gray-500">{senderName}</p>
+                                                                    {preview && <p className="mt-1 line-clamp-2 text-xs text-gray-500">{preview}</p>}
+                                                                </div>
+                                                                <div className="shrink-0 text-right">
+                                                                    <span className="inline-block rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold capitalize text-indigo-700">{String(message.folder || message.status || "message").toLowerCase()}</span>
+                                                                    {messageDate && <p className="mt-1 text-[10px] text-gray-400">{new Date(messageDate).toLocaleDateString()}</p>}
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
 
                         {/* REFRESH */}
@@ -2306,160 +2504,42 @@ const MainLayout = () => {
 
 
             {/* =====================================================
-                SEARCH MODAL
+                GLOBAL SEARCH MESSAGE VIEWER
             ====================================================== */}
-
-            {searchOpen && (
-
-                <div
-                    className="
-                        fixed
-                        inset-0
-                        z-[100]
-                        flex
-                        items-start
-                        justify-center
-                        bg-black/40
-                        px-4
-                        pt-[12vh]
-                        backdrop-blur-sm
-                    "
-                    onClick={() =>
-                        setSearchOpen(false)
-                    }
-                >
-
+            {(searchMessageLoading || searchMessageError || searchSelectedMessage) && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm sm:p-6">
                     <div
-                        className="
-                            w-full
-                            max-w-xl
-                            overflow-hidden
-                            rounded-2xl
-                            bg-white
-                            shadow-2xl
-                        "
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
+                        className="relative flex h-[min(92dvh,900px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                        onClick={(event) => event.stopPropagation()}
                     >
-
-                        <form
-                            onSubmit={
-                                handleSearchSubmit
-                            }
-                            className="
-                                p-4
-                            "
-                        >
-
-                            <div
-                                className="
-                                    flex
-                                    items-center
-                                    gap-3
-                                    rounded-xl
-                                    border
-                                    border-gray-200
-                                    px-4
-                                    py-3
-                                "
-                            >
-
-                                <Search
-                                    size={20}
-                                    className="
-                                        shrink-0
-                                        text-gray-400
-                                    "
-                                />
-
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    value={
-                                        searchText
-                                    }
-                                    onChange={(
-                                        event
-                                    ) =>
-                                        setSearchText(
-                                            event.target
-                                                .value
-                                        )
-                                    }
-                                    placeholder="
-                                        Search messages...
-                                    "
-                                    className="
-                                        min-w-0
-                                        flex-1
-                                        bg-transparent
-                                        text-sm
-                                        text-gray-900
-                                        outline-none
-                                    "
-                                />
-
+                        {searchMessageLoading ? (
+                            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-gray-500">
+                                <div className="h-9 w-9 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
+                                Loading message...
+                            </div>
+                        ) : searchMessageError ? (
+                            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+                                <p className="text-sm text-red-600">{searchMessageError}</p>
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        setSearchOpen(
-                                            false
-                                        )
-                                    }
-                                    className="
-                                        rounded-lg
-                                        p-1.5
-                                        text-gray-400
-                                        hover:bg-gray-100
-                                        hover:text-gray-700
-                                    "
+                                    onClick={closeSearchMessageViewer}
+                                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                                 >
-                                    <X size={18} />
+                                    Close
                                 </button>
-
                             </div>
-
-
-                            <div
-                                className="
-                                    mt-3
-                                    flex
-                                    items-center
-                                    justify-between
-                                    text-xs
-                                    text-gray-400
-                                "
-                            >
-
-                                <span>
-                                    Search your
-                                    DarkMail messages
-                                </span>
-
-                                <kbd
-                                    className="
-                                        rounded
-                                        border
-                                        border-gray-200
-                                        bg-gray-50
-                                        px-2
-                                        py-1
-                                    "
-                                >
-                                    Enter
-                                </kbd>
-
-                            </div>
-
-                        </form>
-
+                        ) : (
+                            <MessageViewer
+                                message={searchSelectedMessage}
+                                onClose={closeSearchMessageViewer}
+                                onMessageDeleted={handleSearchMessageDeleted}
+                                onMessageUpdated={handleSearchMessageUpdated}
+                                showCloseButton={true}
+                            />
+                        )}
                     </div>
-
                 </div>
-
             )}
-
 
             {/* =====================================================
                 LOGOUT MODAL
